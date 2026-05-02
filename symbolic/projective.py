@@ -95,6 +95,35 @@ def encode_problem(a: float, op: int, b: float, n: int = 4) -> Projective:
     return Projective(coeffs)
 
 
+# --- v2 encoding (one-hot op, out_0 = 1, N = 7) -----------------------------
+
+N_V2 = 7
+V2_IN_0 = 0
+V2_OP_SUB = 1   # k_1 = op_-
+V2_OP_ADD = 2   # k_2 = op_+
+V2_OP_MUL = 3   # k_3 = op_*
+V2_OP_DIV = 4   # k_4 = op_/
+V2_IN_1 = 5
+V2_OUT_0 = 6
+
+V2_OP_SLOT = {'-': V2_OP_SUB, '+': V2_OP_ADD, '*': V2_OP_MUL, '/': V2_OP_DIV}
+
+
+def encode_problem_v2(a: float, op: str, b: float) -> Projective:
+    """v2 encoding: one-hot op, ``out_0 = 1``, N = 7.
+
+    Slots: ``(in_0, op_-, op_+, op_*, op_/, in_1, out_0)``.  The active op
+    slot is 1.0; the other op slots are 0.  ``out_0`` is always 1.0 (per
+    the planned v2 init that closes v1's wasted-slot issue).
+    """
+    coeffs = np.zeros(N_V2)
+    coeffs[V2_IN_0] = a
+    coeffs[V2_OP_SLOT[op]] = 1.0
+    coeffs[V2_IN_1] = b
+    coeffs[V2_OUT_0] = 1.0
+    return Projective(coeffs)
+
+
 @dataclass
 class ProjectiveNeuron:
     """Single-layer neuron over the projective algebra.
@@ -124,6 +153,74 @@ class ProjectiveNeuron:
             for i in range(n):
                 if basis_product_index(i, j, n) == OUT_0:
                     d_pred[j] += input_.coeffs[i]
+        return 2.0 * residual * d_pred
+
+    def update(self, grad: np.ndarray, lr: float) -> None:
+        self.bias.coeffs -= lr * grad
+
+    def step(self, input_: Projective, target: float, lr: float) -> float:
+        pred = self.predict(input_)
+        grad = self.gradients(input_, target)
+        self.update(grad, lr)
+        return pred
+
+
+@dataclass
+class SquaredInputProjectiveNeuron:
+    """v1: forward = (input · input) · bias, prediction read from ``readout_slot``.
+
+    The first product squares the input *vector* using the algebra's
+    ``k_n²`` rule, which surfaces quadratic features (``a²``, ``a·b``,
+    ``b²``) in the hidden layer.  The second product reads them out
+    against the trainable ``bias``.  Net result: function class is
+    quadratic in the input — enough to fit ``a·b`` exactly.
+
+    ``readout_slot`` selects which slot of ``output = hidden · bias``
+    is treated as the prediction.  Default ``OUT_0`` (k_3) reads the
+    rigid-direction slot whose (g, h) gradient is always (a·b, 2·a·b);
+    setting ``readout_slot=0`` reads the input-dependent-direction
+    slot whose gradient is (a·b, a²+b², b²) and avoids the v1
+    convergence degeneracy.
+
+    Caveat (single-op v1): with the v0 four-slot encoding and a
+    *non-zero constant* ``op`` value ``c``, the squared input picks up
+    ``c·a``, ``c·b``, ``c²`` terms that can't all be zeroed at the
+    output without losing the ``a·b`` coefficient.  So v1 trains with
+    ``op = 0``.  v2's one-hot op encoding will resolve this.
+    """
+
+    bias: Projective
+    readout_slot: int = OUT_0
+
+    @staticmethod
+    def zeros(n: int = 4, readout_slot: int = OUT_0) -> "SquaredInputProjectiveNeuron":
+        return SquaredInputProjectiveNeuron(
+            bias=Projective.zeros(n), readout_slot=readout_slot
+        )
+
+    def feedforward(self, input_: Projective) -> Projective:
+        hidden = input_ * input_
+        return hidden * self.bias
+
+    def predict(self, input_: Projective) -> float:
+        return self.feedforward(input_)[self.readout_slot]
+
+    def gradients(self, input_: Projective, target: float) -> np.ndarray:
+        """``dL / d(bias_j)`` for ``L = (output[readout_slot] − target) ** 2``.
+
+        The squaring step depends only on ``input``, not ``bias``, so
+        the gradient w.r.t. ``bias`` is the same shape as v0's, just
+        with ``hidden = input · input`` substituted for ``input`` in
+        the contributor sum.
+        """
+        n = input_.n
+        hidden = input_ * input_
+        residual = (hidden * self.bias)[self.readout_slot] - target
+        d_pred = np.zeros(n)
+        for j in range(n):
+            for i in range(n):
+                if basis_product_index(i, j, n) == self.readout_slot:
+                    d_pred[j] += hidden.coeffs[i]
         return 2.0 * residual * d_pred
 
     def update(self, grad: np.ndarray, lr: float) -> None:
