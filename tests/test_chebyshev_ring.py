@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 import sympy as sp
 
-from jenk.chebyshev_ring import ChebyshevRing, RingElement
-from jenk.traction import Zero, Omega, Null, traction_simplify
+from old.jenk.chebyshev_ring import ChebyshevRing
+from old.jenk.traction import Zero, Omega, traction_simplify
 
 
 # --- Construction ---------------------------------------------------------

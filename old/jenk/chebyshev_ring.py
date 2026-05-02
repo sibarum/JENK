@@ -48,11 +48,10 @@ raises ZeroDivisionError.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Union
 
 import sympy as sp
 
-from jenk.traction import traction_simplify
+from old.jenk.traction import traction_simplify
 
 
 def _simplify(expr: sp.Expr) -> sp.Expr:

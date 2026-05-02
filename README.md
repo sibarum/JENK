@@ -18,7 +18,7 @@ translation.
 The four modes
 --------------
 
-|   | Mode       | Traction | δ |
+|   | Mode       | g(s)     | δ |
 |---|------------|----------|---|
 | j | Hyperbolic | 0^(0/2)  | +1|
 | ε | Parabolic  | 0^(1/2)  |  0|
