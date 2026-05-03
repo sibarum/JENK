@@ -21,31 +21,28 @@ The substantive output of the v2/v3/v4 thread now lives in `analysis/` (tracked)
 
 ---
 
-## SUSPECT 1: Mixed-product rule is unjustified
+## SUSPECT 1 (NEEDS CONFIRMATION FROM JAMES): Off-diagonal mixed-product rule
 
 **File:** `symbolic/projective.py`, lines 41-45 (`basis_product_index`)
 
-The diagonal rule `k_i · k_i = k_{(i+1) mod N}` came directly from James's spec. The off-diagonal rule `k_i · k_j = k_{(2i + j) mod N}` for `i ≠ j` was invented to make the algebra closed and non-commutative. **It is not derived from anything framework-native.** It does not correspond to:
-- `traction.py`'s defined identities (`0·ω = 1`, etc.)
-- Any natural algebra structure (Clifford, group ring, hypercomplex)
-- The Riemann sphere + 90° Möbius framework James actually uses (see Suspect 2)
+The diagonal rule `k_i · k_i = k_{(i+1) mod N}` is intentional (cyclicality — see "Cyclic squaring rule is intentional" above). The off-diagonal rule `k_i · k_j = k_{(2i + j) mod N}` for `i ≠ j` — **its origin is unclear.** A previous session asserted that I/Claude invented this off-diagonal rule to make the algebra closed and non-commutative, but that assertion may have been the same Python-overtraining mistake as the squaring "suspect 2" reframe. Before treating this as a defect, **ask James whether the off-diagonal rule was also part of the original spec.**
 
-The empirical symptom: cross-op dead-slot table is asymmetric — `output[5]` kills no bias, `bias[4]` is alive at every output. The "k_4 and k_6 flipped" observation traced this to the multiplication rule, not the encoding (the encoding swap left the dead-slot pattern unchanged).
+If it was deliberate: leave it, document the rationale, no change.
+If it was Claude-invented: anchor it to `traction.py` identities or another framework-native source — and preserve the diagonal cyclicality.
 
-**What needs to happen:** replace `basis_product_index` with a rule derived from `traction.py` identities, using `traction_simplify()` to compute the actual multiplication table for the framework's basis elements `{1, 0, −1, ω}` (or whichever 4-cycle / 6-point structure the framework intends).
+The empirical symptom: cross-op dead-slot table is asymmetric — `output[5]` kills no bias, `bias[4]` is alive at every output. The "k_4 and k_6 flipped" observation traced this to the multiplication rule, not the encoding (the encoding swap left the dead-slot pattern unchanged). This asymmetry is real; whether it indicates a defect or a feature depends on whether the rule was intentional.
 
 ---
 
-## SUSPECT 2: Basis doesn't loop meaningfully
+## NOT A SUSPECT: Cyclic squaring rule is intentional
 
-The cyclic squaring rule `k_n² = k_{n+1 mod N}` is a *symbolic* loop — basis indices cycle by name. But the framework's actual loop is the **90° Möbius rotation `M(z) = (z+i)/(iz+1)`** on the Riemann sphere, which cycles `{0, i, ∞, −i}` with `±1` as fixed points. Our algebra implements neither this Möbius nor the Riemann-sphere structure; it just labels indices cyclically.
+(Previously listed as "Suspect 2" — that framing was wrong.)
 
-The squaring rule should really be `M(k_i) = k_{(i+1) mod N}` where `k_i` is an actual point on the sphere — not a symbolic index. The current implementation treats slot identity as bookkeeping, when it should encode actual sphere positions.
+The squaring rule `k_i · k_i = k_{(i+1) mod N}` is James's deliberate spec. He chose it specifically so squaring would be cyclical; the cyclicality is the design property. The exact form isn't sacred — any cyclical squaring rule on the basis would do — but cyclicality must be preserved.
 
-**What needs to happen:** decide whether the architecture should:
-1. Anchor `k_0..k_3` to specific Riemann-sphere points (`{0, i, ∞, −i}`) and implement the Möbius literally as the squaring/shift operation.
-2. Stay symbolic but at least anchor multiplication to `traction_simplify()` (Suspect 1's fix).
-3. Continue with the symbolic approximation but explicitly document it as such.
+A previous session reframed this as a "symbolic-only loop" that ought to be replaced with the literal 90° Möbius `M(z) = (z+i)/(iz+1)` on the Riemann sphere. That was Python-overtraining-style pattern-matching: seeing a cycle and assuming it was a stand-in for "the real" rotation. James didn't intend it as a stand-in. Möbius integration may still be a separate forward-looking enrichment (see "Forward-looking design notes" item 6 — readout vs hidden-side application), but it isn't a fix to a defect.
+
+**What needs to happen:** nothing on the squaring rule itself. If the algebra ever changes (e.g. for suspect-1's off-diagonal question, or for traction-derived anchoring), preserve cyclicality.
 
 ---
 
@@ -125,9 +122,34 @@ The refactored `v2_per_op_train.py` does this correctly (see `evaluate_on_all_op
 
 These are the substantive results from the conversation. They should be preserved somewhere version-controlled.
 
-### Function-class limitations
+### Function-class limitations (identity-input encoding only)
 
-The architecture `output = (input · input) · bias` is **degree-2 polynomial** in `(a, b)`. Confirmed by `op_function_classes.png`: the closed-form L²-best degree-2 polynomial fits `+`, `−`, `*` exactly (zero residual on the visualisation grid) but cannot represent `a/b`. The residual for `/` concentrates entirely in the strip near `b = 0` (max ≈ 287 in the figure).
+For the v2 **identity-input** encoding (in_1 = b), the architecture `output = (input · input) · bias` is **degree-2 polynomial** in `(a, b)`. Confirmed by `op_function_classes.png`: the closed-form L²-best degree-2 polynomial fits `+`, `−`, `*` exactly (zero residual on the visualisation grid) but cannot represent `a/b`. The residual for `/` concentrates entirely in the strip near `b = 0` (max ≈ 287 in the figure).
+
+This is a property of *that input encoding*, not a property of the architecture. See "Reciprocal-input single-neuron feasibility" below for the encoding that lifts this limitation.
+
+### Reciprocal-input single-neuron feasibility — division IS exactly fittable (v5)
+
+A single neuron with input encoding `(a, op-one-hot, 1/b, 1)` (i.e., **`1/b` in the in_1 slot instead of `b`**) admits an exact non-trivial bias for `output[k] = a/b` at **every readout slot k ∈ {0..6}**. Verified analytically (sympy, deterministic).
+
+Concrete bias examples (residual exactly zero after substitution):
+- output[0]: `bias = (free, 1/2, 1/2, −1/2, 1/2, 0, −1/2)`
+- output[1]: `bias = (0, 1, 1, 0, −2, free, 0)`
+- output[6]: `bias = (1/3, 0, free, 4/3, 0, −2/3, −1/3)`
+
+**Complementary verdict:** with reciprocal encoding, `+, −, *` are infeasible at every readout slot (you can't build `b` as a polynomial in `(a, 1/b)`). The encodings are *specialized*:
+- Identity neuron (in_1 = b) — fits `{+, −, *}` exactly, can't fit `/`.
+- Reciprocal neuron (in_1 = 1/b) — fits `/` exactly, can't fit `{+, −, *}`.
+
+A **two-neuron pair** with op-conditional routing covers all four ops as exact polynomial identities: degree-2 in `(a, b)` for `+, −, *`; degree-2 in `(a, 1/b)` for `/`. Framework-native — `b → 1/b` is one canonical Möbius step on the Riemann sphere (the `0 ↔ ∞` swap).
+
+**Reproduction provenance:**
+- Commit at time of finding: see `git log` for the commit titled "v5: reciprocal-input feasibility — division unlocked"
+- Script: `analysis/v5_reciprocal_input_feasibility.py`
+- Output file: `analysis/v5_reciprocal_input_results.txt`
+- Command: `conda run -n traction python analysis/v5_reciprocal_input_feasibility.py`
+- Determinism: pure sympy, no random seed needed. Identical output across runs.
+- Windows note: `conda run` on Windows hits CP1252 `UnicodeEncodeError` on the `−` character when printing to stdout; the *output file* is written cleanly via `encoding="utf-8"` before the print fails. Read the file, ignore the stdout traceback.
 
 ### v2 path-count summary (original layout)
 
@@ -142,7 +164,7 @@ Per-op spanning verdicts at output[0]:
 - `{+}`: well-conditioned (rank 6/6)
 - `{−}`: well-conditioned
 - `{*}`: 1-D init-frozen direction (rank 5/6) — same multiplicative-interference pattern
-- `{/}`: structurally unfittable (polynomial vs rational)
+- `{/}`: structurally unfittable *under identity-input encoding* — but exactly fittable under reciprocal-input encoding (see "Reciprocal-input single-neuron feasibility" above)
 
 ### Empirical training results (held-out eval, ratio to predict-0 baseline)
 
@@ -211,10 +233,9 @@ These are in `~/.claude/projects/.../memory/` and survive across Claude Code ses
 ## NEXT STEPS, IN PRIORITY ORDER
 
 1. ~~**`git mv tmp/diagnostics/* analysis/`** + commit.~~ DONE — files now in `analysis/` and tracked.
-2. **Decide the suspect-1 question:** anchor multiplication to `traction.py` (real fix) vs leave the made-up rule (status quo with known limits). If the former, derive the multiplication table for `{1, 0, −1, ω}` from `traction_simplify()` and rewrite `basis_product_index`.
-3. **Decide the suspect-2 question:** implement the actual 90° Möbius (real fix) vs keep symbolic squaring (approximation).
+2. **Consolidation: single source of truth for the algebra, layouts, ops, and training helpers.** Eliminate the 5-place duplication of `basis_product_index`, the 3 incompatible op-set keyings, and the verbatim-duplicated `train` / `evaluate_on_all_ops` / `baseline_per_op`. This is prep that makes any subsequent change to the algebra a one-line edit.
+3. **Confirm with James: was the off-diagonal rule `k_i · k_j = k_{(2i+j) mod N}` (for i≠j) part of his original spec or Claude-invented?** Diagonal cyclicality is intentional; off-diagonal origin is unclear. Don't treat as a defect until confirmed.
 4. **Rename `V2_OUT_0`** to something accurate, document `readout_slot=0`'s justification.
 5. **Promote v2 architecture into tests** — add `TestV2OneHotEncoding` (and its swapped sibling) to `tests/test_projective_neuron.py` with assertions on the empirical findings table above.
-6. **DRY up the remaining duplicated op-lists** in the four files listed in "REMAINING DUPLICATIONS."
-7. **Decide on Möbius integration location** (readout vs middle vs algebra-core), then build it.
-8. **Re-derive path-counts under the framework-derived multiplication rule** — once that rule replaces the made-up one, the dead-slot pattern, joint-feasibility verdicts, and choice of well-conditioned readout all need to be recomputed.
+6. **Decide on Möbius integration location** (readout vs middle) if pursued — *not* as a replacement for cyclical squaring (that was a misframing), but as a separate enrichment.
+7. **Re-derive path-counts** if/when the algebra changes (off-diagonal rule, traction-derived anchoring) — dead-slot pattern, joint-feasibility verdicts, well-conditioned readout choice all depend on the rule and need recomputation if it shifts.

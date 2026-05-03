@@ -1,0 +1,110 @@
+v5 reciprocal-input feasibility — single neuron, in_1 = 1/b
+========================================================================
+Architecture: N=7, v2 slot layout, but in_1 holds 1/b (not b).
+Slots: k_0=in_0(a) k_1=op_- k_2=op_+ k_3=op_* k_4=op_/ k_5=in_1(1/b) k_6=out_0(=1)
+
+--- Hidden = input · input, per op ---
+
++ (op slot k_2 active):
+  hidden[0] = 2
+  hidden[1] = a**2
+  hidden[2] = (a*b + 2)/b
+  hidden[3] = (a + 2*b + 1)/b
+  hidden[4] = a
+  hidden[5] = (a*b + a + 1)/b
+  hidden[6] = (a*b**2 + 1)/b**2
+
+- (op slot k_1 active):
+  hidden[0] = (b + 1)/b
+  hidden[1] = a**2 + a + 1
+  hidden[2] = (a*b + b + 1)/b
+  hidden[3] = (a + 1)/b
+  hidden[4] = 1/b
+  hidden[5] = a*(b + 1)/b
+  hidden[6] = (a*b**2 + b**2 + 1)/b**2
+
+* (op slot k_3 active):
+  hidden[0] = 1
+  hidden[1] = a**2 + 1
+  hidden[2] = 1/b
+  hidden[3] = (a*b + a + 1)/b
+  hidden[4] = (b + 1)/b
+  hidden[5] = (a*b + a + b)/b
+  hidden[6] = (2*a*b**2 + b + 1)/b**2
+
+/ (op slot k_4 active):
+  hidden[0] = (2*b + 1)/b
+  hidden[1] = a*(a + 1)
+  hidden[2] = (b + 1)/b
+  hidden[3] = (a + 1)/b
+  hidden[4] = a
+  hidden[5] = (a*b + a + b)/b
+  hidden[6] = (a*b**2 + b + 1)/b**2
+
+========================================================================
+Feasibility per (op, readout_slot) pair
+========================================================================
+
+--- Target op: +,  target = a + b ---
+  output[0]: INFEASIBLE  (7 constraints, rank 6) — inconsistent (rank 6 of M vs 7 of [M|c])
+  output[1]: INFEASIBLE  (7 constraints, rank 6) — inconsistent (rank 6 of M vs 7 of [M|c])
+  output[2]: INFEASIBLE  (7 constraints, rank 6) — inconsistent (rank 6 of M vs 7 of [M|c])
+  output[3]: INFEASIBLE  (6 constraints, rank 5) — inconsistent (rank 5 of M vs 6 of [M|c])
+  output[4]: INFEASIBLE  (6 constraints, rank 5) — inconsistent (rank 5 of M vs 6 of [M|c])
+  output[5]: INFEASIBLE  (7 constraints, rank 6) — inconsistent (rank 6 of M vs 7 of [M|c])
+  output[6]: INFEASIBLE  (7 constraints, rank 5) — inconsistent (rank 5 of M vs 6 of [M|c])
+
+--- Target op: -,  target = a - b ---
+  output[0]: INFEASIBLE  (7 constraints, rank 6) — inconsistent (rank 6 of M vs 7 of [M|c])
+  output[1]: INFEASIBLE  (7 constraints, rank 6) — inconsistent (rank 6 of M vs 7 of [M|c])
+  output[2]: INFEASIBLE  (7 constraints, rank 6) — inconsistent (rank 6 of M vs 7 of [M|c])
+  output[3]: INFEASIBLE  (6 constraints, rank 5) — inconsistent (rank 5 of M vs 6 of [M|c])
+  output[4]: INFEASIBLE  (6 constraints, rank 5) — inconsistent (rank 5 of M vs 6 of [M|c])
+  output[5]: INFEASIBLE  (7 constraints, rank 6) — inconsistent (rank 6 of M vs 7 of [M|c])
+  output[6]: INFEASIBLE  (7 constraints, rank 6) — inconsistent (rank 6 of M vs 7 of [M|c])
+
+--- Target op: *,  target = a*b ---
+  output[0]: INFEASIBLE  (7 constraints, rank 5) — inconsistent (rank 5 of M vs 6 of [M|c])
+  output[1]: INFEASIBLE  (7 constraints, rank 5) — inconsistent (rank 5 of M vs 6 of [M|c])
+  output[2]: INFEASIBLE  (7 constraints, rank 5) — inconsistent (rank 5 of M vs 6 of [M|c])
+  output[3]: INFEASIBLE  (6 constraints, rank 4) — inconsistent (rank 4 of M vs 5 of [M|c])
+  output[4]: INFEASIBLE  (6 constraints, rank 4) — inconsistent (rank 4 of M vs 5 of [M|c])
+  output[5]: INFEASIBLE  (7 constraints, rank 5) — inconsistent (rank 5 of M vs 6 of [M|c])
+  output[6]: INFEASIBLE  (7 constraints, rank 5) — inconsistent (rank 5 of M vs 6 of [M|c])
+
+--- Target op: /,  target = a/b ---
+  output[0]: NON-TRIVIAL FEASIBLE  (6 constraints, rank 6)
+    bias: {e0: e0, e1: 1/2, e2: 1/2, e3: -1/2, e4: 1/2, e5: 0, e6: -1/2}
+    residual after substitution: 0
+  output[1]: NON-TRIVIAL FEASIBLE  (6 constraints, rank 6)
+    bias: {e0: 0, e1: 1, e2: 1, e3: 0, e4: -2, e5: e5, e6: 0}
+    residual after substitution: 0
+  output[2]: NON-TRIVIAL FEASIBLE  (6 constraints, rank 6)
+    bias: {e0: 1, e1: -1, e2: -1, e3: e3, e4: 0, e5: 1, e6: 1}
+    residual after substitution: 0
+  output[3]: NON-TRIVIAL FEASIBLE  (5 constraints, rank 5)
+    bias: {e0: e6/4 + 1/2, e1: e1, e2: -e6/4 - 1/2, e3: -e6/2, e4: 1/2 - e6/4, e5: 0, e6: e6}
+    residual after substitution: 0
+  output[4]: NON-TRIVIAL FEASIBLE  (5 constraints, rank 5)
+    bias: {e0: -3*e4/2 - 1/2, e1: 1/2 - e4/2, e2: 0, e3: e4/2 - 1/2, e4: e4, e5: 1, e6: e6}
+    residual after substitution: 0
+  output[5]: NON-TRIVIAL FEASIBLE  (6 constraints, rank 6)
+    bias: {e0: 0, e1: 1 - 3*e6, e2: 1 - e6, e3: 0, e4: e6 - 1, e5: 2*e6 - 1, e6: e6}
+    residual after substitution: 0
+  output[6]: NON-TRIVIAL FEASIBLE  (6 constraints, rank 6)
+    bias: {e0: 1/3, e1: 0, e2: e2, e3: 4/3, e4: 0, e5: -2/3, e6: -1/3}
+    residual after substitution: 0
+
+========================================================================
+Summary table: which (op, readout_slot) pairs admit a non-trivial bias?
+========================================================================
+
+          k_0  k_1  k_2  k_3  k_4  k_5  k_6
+  +      x    x    x    x    x    x    x 
+  -      x    x    x    x    x    x    x 
+  *      x    x    x    x    x    x    x 
+  /      ✓    ✓    ✓    ✓    ✓    ✓    ✓ 
+
+Legend:  ✓ = non-trivial bias exists (target is fittable exactly)
+         . = only trivial bias=0 satisfies the constraints
+         x = infeasible (no bias makes it hold)

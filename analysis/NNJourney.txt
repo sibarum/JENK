@@ -1,0 +1,304 @@
+Let me literalise it on the v1 result we already have. Bias converged to (e=0, f=0, g=0.2, h=0.4); with op=0 input, here's what every slot actually holds at convergence:
+  hidden = input · input (the squared input):                                                                                                                                       
+  - k_0 = a·b
+  - k_1 = a²                                                                                                                                                                        
+  - k_2 = a·b  ← redundant with k_0                         
+  - k_3 = b²
+  output = hidden · bias at each slot:
+  - output_0 = 0.2·a² + 0.6·b²
+  - output_1 = 0.4·a²
+  - output_2 = 0.2·a·b
+  - output_3 = a·b  ← the prediction we actually read
+  So at convergence, 3 of 4 output slots carry genuine non-zero quadratic features of the input. We just throw them away because the loss only reads output[OUT_0]. Those higher-k
+  slots are holding weight in the literal sense (computed, non-zero), but doing zero work for the loss.
+  That's a Graph hint. Those slots only become useful if any of:
+  1. Multi-layer: feed output back as input to another layer — then k_0 / k_1 / k_2 are features the next layer can mix.
+  2. Multi-readout: predict a vector instead of a scalar (e.g. one slot per op — output_2 reads a·b, output_3 reads a+b). The "wasted" slots become live.
+  3. Loss across slots: regularise on what those slots carry.
+  Two extra observations worth pinning down:
+  - hidden_0 and hidden_2 both carry a·b exactly. The algebra has built-in redundant feature pathways — same information at multiple slots. That's why convergence puts weight on
+  both g=0.2 and h=0.4 rather than one at full strength.
+  - hidden_1 = a² computes a feature that no (i, j) pair routes to output_3 — pure overhead in this single-output architecture. Multi-readout unlocks it.
+  Re framing: agreed, hard. A free 4×4 bilinear form has 64 free coefficients (the full multiplication tensor); your rule has zero free coefficients — it's pure structure. Same
+  matrix-power expressively, radically different inductive bias. PHM gives back those 64 coefficients to learn; you've constrained them to a single-rule family. Whether the
+  constraint pays off empirically is exactly what v1 / v2 / v3 are going to test.
+  
+  This is a clean breakdown, and I want to push on a couple of things before agreeing with the framing.
+
+**On the redundancy claim (k_0 = k_2 = a·b):** Yes, at convergence both slots carry the same scalar feature. But "redundant" is doing some work here that I'd want to separate. They're redundant *for representing the feature a·b*, but they're not redundant *for the gradient path* during training — each slot has its own upstream weights, so the loss can route gradient through either, and the converged split (g=0.2, h=0.4) is the optimization's answer to that. The fact that it didn't collapse to (0, 0.6) or (0.6, 0) is interesting on its own — it suggests the parameterization has a soft attractor at the balanced split, probably because the rule ties the two paths symmetrically. That's a property of the structure, not waste. Worth checking whether v2's converged (g, h) under the same rule but different init lands in the same ratio or just sums to 0.6.
+
+**On hidden_1 = a² being "pure overhead":** I'd be more careful here. It's overhead *for predicting a·b under op=0*. Under a different op encoding — say op=1 routes a² to output_3 — the same slot becomes the live one and a·b becomes the dead weight. If your rule is op-conditional, the "wasted" slots aren't waste, they're the other branches of a switch. The single-readout / single-op snapshot makes them look inert; the question is whether the architecture is actually carrying a *family* of computations that share hidden slots and just happen to be evaluating one member right now. That's a very different story from "3 of 4 slots do zero work."
+
+**On the three remedies:** Multi-readout (#2) is the strongest test because it directly falsifies the overhead reading — if predicting a vector of ops simultaneously makes the slots converge to non-redundant features, the slots were latent-useful all along. Multi-layer (#1) confounds: stacking will find *some* use for any non-zero feature, so it doesn't tell you whether the original architecture was wasteful or just under-supervised. Loss-across-slots (#3) is the least informative — you're paying the slots to be non-zero, which guarantees they will be, without telling you whether they'd carry useful structure organically.
+
+**On the PHM framing:** "64 free coefficients vs zero" is right on the count but slightly understates what the rule buys you. Zero free coefficients doesn't mean zero expressive flexibility — it means the flexibility lives entirely in the bias vector (e, f, g, h), which selects *which* of the rule-permitted bilinear forms you land on. So you're not comparing 64-dim to 0-dim; you're comparing 64-dim to 4-dim-along-a-rule-defined-manifold. The empirical question for v1/v2/v3 is whether that manifold contains the bilinear forms the data actually wants, or whether it misses them and 4 dims of freedom on the wrong manifold beats nothing.
+
+One thing the analysis doesn't pin down: is the (g=0.2, h=0.4) split stable across seeds, or is it init-dependent with a conserved sum? That distinguishes "the rule has a preferred operating point" from "the rule has a 1-D degenerate minimum and you happened to land here." Cheap to check and it changes how you read the redundancy.
+
+You're right on all five points. Let me concede each before running the check, since some affect the framing more than the data does:
+  Redundancy. Yes — representation-redundant ≠ gradient-path-redundant. Each path has its own upstream weight and the loss can route through either; the split that survives is     
+  optimisation's answer to those independent paths. I conflated them.
+                                                                                                                                                                                    
+  Path-count asymmetry, not symmetric tying. Worth saying out loud while we're here: the 1:2 gradient ratio doesn't come from the rule "tying the paths symmetrically" — it comes
+  from h having two (i, j) pairs that route to OUT_0 carrying a·b (namely (0, 3) and (2, 3)) while g has one (the squared (2, 2)). So h is structurally "ahead" by factor 2. The
+  ratio is asymmetric path counts in the routing rule, not balance. That sharpens what the cheap check is going to tell us — if landing is init-dependent, it's the trajectory
+  that's rigid (always along (1, 2)), and the manifold (g+2h=1) picks a different point per starting position.
+  hidden_1 = a² as "pure overhead". Conceded. Single-readout single-op snapshot makes them look inert; under multi-readout an op-conditional rule could route a² to a different
+  output. Right framing is "evaluating one branch of a switch", not "wasting compute".
+  Three remedies. Agreed on the ranking. Multi-readout falsifies; multi-layer confounds; loss-across-slots is paying the slots to be non-zero. I'll keep that ordering for v2/v3.
+  PHM framing. You're right, "0 vs 64" undersells it. The bias is 4-dim on a rule-defined manifold of bilinear forms; PHM is 64-dim across all bilinear forms. The empirical
+  question is whether the manifold contains the bilinear forms the data wants.
+  Now the cheap check.
+  
+  Good. The check is genuinely cheap — re-run v1 with the same architecture and rule, vary only the init seed, log converged (g, h) across maybe 10–20 seeds. Three things to look at:
+
+**The sum.** If g + 2h is conserved across seeds (always ≈ 1.0, modulo training noise), the minimum is a 1-D degenerate ridge along the path-count constraint, and where you land is pure init geometry. If the sum varies meaningfully, it's not a true degeneracy — there's some weak curvature picking a preferred point and your v1 just happened to find one local solution.
+
+**The ratio.** Your prediction from the path-count argument is h/g ≈ 2 at convergence whenever both are non-zero. v1 gave 0.4 / 0.2 = 2 exactly. If that ratio holds across seeds, the path-count story is doing all the work and the trajectory is rigid along (1, 2). If the ratio drifts, something else is shaping the landing.
+
+**Boundary landings.** Worth watching for seeds that converge to (g≈0, h≈0.5) or (g≈1, h≈0) — i.e. one path wins outright. If those exist, the ridge has soft attractors at the corners as well as in the interior, which is a different story again (it would mean optimization sometimes prefers to kill one path entirely, which the symmetric reading doesn't predict).
+
+One subtlety: "same init seed" needs to mean same a, b distribution too, or you're varying two things. Fix the data, vary only the parameter init.
+
+If you want, paste the v1 setup and I can sketch the loop — but I suspect you already have it ready to run.
+
+
+ Result is clean. Four-init sweep:                                                                                                                                                 
+                                                                                                                                                                                    
+  ┌───────────────┬───────────────┬────────┬─────────┬──────────────┬──────────┐                                                                                                    
+  │ init (g₀, h₀) │ final (g, h)  │ g + 2h │ Δh / Δg │ t* predicted │ t actual │                                                                                                    
+  ├───────────────┼───────────────┼────────┼─────────┼──────────────┼──────────┤                                                                                                    
+  │ (0.0, 0.0)    │ (0.20, 0.40)  │ 1.0    │ 2.0     │ +0.200       │ +0.200   │                                                                                                    
+  ├───────────────┼───────────────┼────────┼─────────┼──────────────┼──────────┤                                                                                                    
+  │ (0.5, 0.5)    │ (0.40, 0.30)  │ 1.0    │ 2.0     │ −0.100       │ −0.100   │                                                                                                    
+  ├───────────────┼───────────────┼────────┼─────────┼──────────────┼──────────┤                                                                                                    
+  │ (−0.3, 0.7)   │ (−0.32, 0.66) │ 1.0    │ 2.0     │ −0.020       │ −0.020   │                                                                                                    
+  ├───────────────┼───────────────┼────────┼─────────┼──────────────┼──────────┤
+  │ (0.4, −0.1)   │ (0.56, 0.22)  │ 1.0    │ 2.0     │ +0.160       │ +0.160   │
+  └───────────────┴───────────────┴────────┴─────────┴──────────────┴──────────┘
+
+  All four:
+  - Land on the same manifold g + 2h = 1 (to four decimals).
+  - Have Δh / Δg = 2.0 exactly — trajectory rigidly along (1, 2).
+  - Land at different (g, h) points.
+  - Match the closed-form prediction t* = (1 − g₀ − 2h₀)/5 to numerical precision.
+
+  Verdict: "preferred operating point" falsified; "1-D degenerate minimum with init-dependent landing" confirmed.
+
+  The (0.2, 0.4) we saw earlier is a zero-init artefact, not a structural attractor. The rule pins the trajectory direction (the 1:2 path-count asymmetry I called out) but not the
+  landing point — what you get is the init's component orthogonal to (1, 2), preserved unchanged.
+
+  That sharpens the redundancy reading too. The two paths (hidden_0 and hidden_2 both carrying a·b) are doing their representational work — both route to OUT_0 — but the
+  optimization doesn't choose between them or balance them. It just slides along the line the gradient direction forces. SGD literally cannot collapse the redundancy here because
+  the gradient has no component along the direction that would. Neither "wasted" nor "balanced": propagated. The orthogonal axis is a free parameter that training never touches.
+
+  Worth keeping an eye on this as we move to v2. With multi-readout, the gradient stops being a single fixed direction in (g, h) space — different output slots will pull it
+  different ways, and the optimization gets the freedom to actually balance redundant features. If the same redundant pathways exist in v2 but convergence becomes init-INdependent,
+   that's the evidence that multi-readout is making use of the redundancy rather than just inheriting it. That'd be the argument for the architecture, not the v0/v1 single-readout
+  snapshots.
+  
+  This is a clean result, and I think the interpretation is right. Let me push on a couple of edges and then on the v2 prediction, because that's where the framing has the most to lose or gain.
+
+**On the degeneracy.** The four-seed sweep is decisive for what it claims: g + 2h = 1 holds to four decimals, Δh/Δg = 2 exactly, landing matches the closed-form prediction. That's not "preferred operating point with noise" — that's a genuine 1-D minimum with the orthogonal axis untouched by gradient. The fact that the closed form t* = (1 − g₀ − 2h₀)/5 nails the landings to numerical precision is the strongest piece, because it means you've not just observed the degeneracy, you've characterized it: training moves the projection onto (1, 2) and leaves the orthogonal component frozen. That's a complete account.
+
+One thing worth pinning down explicitly: the "5" in the denominator is the squared norm of the path-count vector (1² + 2² = 5), which is the Gauss-Newton step along the gradient direction for an MSE loss. So the closed form isn't a coincidence — it's what you'd predict from "gradient lives entirely along (1, 2), step size set by curvature in that direction, orthogonal direction has zero curvature *and* zero gradient." If you wanted one more sanity check, the Hessian eigendecomposition should give you one non-zero eigenvalue with eigenvector ∝ (1, 2) and one zero eigenvalue with eigenvector ∝ (2, −1). Cheap to compute and it'd close the loop on "no curvature in the orthogonal direction" vs. "curvature exists but gradient happens not to point there" — those are different stories and the seed sweep alone doesn't fully distinguish them. (Though the closed form working exactly is strong evidence for the first.)
+
+**On "propagated, not wasted or balanced."** I like this framing and I think it's the right word. But I want to flag what it commits you to. "Propagated" means the redundancy is *information-preserving but training-invisible* — the architecture computes a·b twice, the loss only sees the sum, and the split is whatever the init handed you. That's a real category, distinct from waste (computing nothing useful) and from balance (training actively distributing load). The v2 prediction follows directly: if multi-readout creates a second loss term whose gradient has a different direction in (g, h) space, the joint gradient will generically span the full 2-D space, the orthogonal axis stops being free, and convergence becomes init-independent. That's a clean falsifiable prediction.
+
+**One caveat on the v2 prediction.** "Different output slots will pull the gradient different ways" is true *if* the readouts are reading genuinely different features. If you set up multi-readout but every output slot ends up reading some linear combination of a·b (e.g., because the rule routes a·b to multiple outputs with different coefficients), the gradients will still all live along (1, 2) and you'll get init-dependence again, just with a different fixed direction. The architectural prediction needs the readouts to be reading *features that pull on g and h with different ratios* — i.e., the path-count vector for output_2 has to differ from the path-count vector for output_3. Worth deriving those path-count vectors before running v2 so you know in advance whether the test is actually a test, or whether the rule has a hidden symmetry that defeats it. If both readouts have path-count vector ∝ (1, 2), multi-readout inherits the degeneracy rather than breaking it, and the experiment can't tell you what you want it to.
+
+The cheapest version of that check: write out, for each candidate output slot, which (i, j) pairs route there carrying a·b vs a² vs b², and read off the gradient direction in (g, h) for each loss term. If they're linearly independent, v2 will break the degeneracy. If they're proportional, it won't.
+
+Both checks. First the Hessian closure, then the path-count derivation.
+  Hessian closure                                                                                                                                                                   
+   
+  Per-sample loss with op=0 is ((g+2h−1)·a·b + f·b²)². The (g, h) block of the per-sample Hessian is                                                                                
+                                                            
+  2·(a·b)² · [[1, 2],
+              [2, 4]]
+  which factors as 2·(a·b)² · (1, 2)(1, 2)ᵀ — rank 1. Eigenvalues: 10·(a·b)² along (1, 2)/√5, and 0 along (2, −1)/√5. On every sample, not just in expectation. So the orthogonal
+  direction has zero curvature, period — your "first story", confirmed.
+  The 5 in the closed form is exactly ‖(1, 2)‖² = 5. Gauss-Newton step along the gradient direction with quadratic loss is t* = (target − f(g₀, h₀)) / ‖∇‖², and that's what
+  propagates to the landing. So the closed form t* = (1 − g₀ − 2h₀)/5 isn't structurally lucky — it's the Gauss-Newton update specialised to a rank-1 Hessian and, since there's no
+  curvature off-axis, GN equals the actual SGD limit.
+  Adding the numerical check now.
+  
+  That all checks out. The factorization 2·(a·b)² · (1, 2)(1, 2)ᵀ is the cleanest possible diagnosis — rank-1 outer product, the (1, 2) direction is the *only* direction the loss can see at all on any sample, and the (2, −1) direction is exactly null. Not "small curvature on average" or "small after the (a·b)² expectation" — zero, sample-by-sample. That's the strongest version of the result.
+
+And yes, the 5 = ‖(1, 2)‖² collapse to one-step Gauss-Newton equals SGD limit is the right closure. Quadratic loss + rank-1 Hessian + gradient lives in the rank-1 column space → GN converges in one step in the relevant direction, the orthogonal direction is untouched because both gradient and curvature vanish there, and the closed form drops out without any approximation. The fact that t* matched to four decimals across four seeds wasn't lucky; it couldn't have been anything else.
+
+One small thing worth saying out loud while you're here: the rank-1 structure being *per-sample* rather than per-expectation matters for the v2 prediction. If it were only rank-1 in expectation (the off-axis curvature averaging to zero across the data distribution but nonzero per sample), then sufficiently noisy SGD could still drift along the null direction over many steps — random walk with no restoring force. Rank-1 per sample rules that out: there's no sample that pushes you off the line, ever, so even infinite-step SGD with any batch size stays on the init's orthogonal coordinate. The degeneracy is *exact*, not statistical. That's a stronger property and it's what makes the closed form work to numerical precision rather than within sampling noise.
+
+For v2: the path-count vectors per output slot are now the thing to derive cleanly, because that determines whether multi-readout produces a Hessian that's still rank-1 (degeneracy preserved, just rotated) or genuinely rank-2 (degeneracy broken). The test is whether the per-output path-count vectors are linearly independent. If output_2's path-count vector is (p₁, p₂) and output_3's is (q₁, q₂), the joint Hessian becomes 2·(a·b)² · [(p, p)(p, p)ᵀ · weight_2 + (q, q)(q, q)ᵀ · weight_3] (schematically — the actual feature each output reads matters too, since output_3 reads a·b while output_2 might read something else, and the Hessian gets weighted by the squared feature). Rank goes to 2 iff the vectors are independent. Worth writing out the routing table for v2 before running it so you know in advance whether you've actually broken the symmetry or just translated it.
+
+Curious to see the numerical check.
+
+Hessian check passes — eigenvalues 0.000 and 1440.0 (= 10·12² = 10·(a·b)²), eigenvectors aligned with (2, −1)/√5 and (1, 2)/√5 to 1e-2.                                           
+                                                                                                                                                                                    
+  Path-count vectors per output slot                                                                                                                                                
+                                                                                                                                                                                    
+  Working out, in terms of general hidden coefficients h_i = hidden[i], what the gradient on (e, f, g, h) looks like at each output slot. From the multiplication table, the linear 
+  form at each output is:                                                                                                                                                           
+                                                                                                                                                                                    
+  ┌───────────┬─────────────────────────────┬─────────────────────────┐                                                                                                             
+  │  output   │     linear form in bias     │ path-count (e, f, g, h) │                                                                                                             
+  ├───────────┼─────────────────────────────┼─────────────────────────┤                                                                                                             
+  │ output[0] │ e·h_2 + g·(h_1+h_3) + h·h_3 │ (h_2, 0, h_1+h_3, h_3)  │                                                                                                             
+  ├───────────┼─────────────────────────────┼─────────────────────────┤
+  │ output[1] │ e·h_0 + f·(h_0+h_2) + h·h_1 │ (h_0, h_0+h_2, 0, h_1)  │
+  ├───────────┼─────────────────────────────┼─────────────────────────┤
+  │ output[2] │ e·(h_1+h_3) + f·h_1 + g·h_0 │ (h_1+h_3, h_1, h_0, 0)  │
+  ├───────────┼─────────────────────────────┼─────────────────────────┤
+  │ output[3] │ f·h_3 + g·h_2 + h·(h_0+h_2) │ (0, h_3, h_2, h_0+h_2)  │
+  └───────────┴─────────────────────────────┴─────────────────────────┘
+
+  Specialised to v1 with op=0 (hidden = (a·b, a², a·b, b²)):
+
+  ┌───────────┬─────────────────────────┬───────────────────┬───────────────────────┐
+  │   slot    │ (e, f, g, h) path-count │ (g, h) projection │  direction in (g, h)  │
+  ├───────────┼─────────────────────────┼───────────────────┼───────────────────────┤
+  │ output[0] │ (a·b, 0, a²+b², b²)     │ (a²+b², b²)       │ varies with (a, b)    │
+  ├───────────┼─────────────────────────┼───────────────────┼───────────────────────┤
+  │ output[1] │ (a·b, 2·a·b, 0, a²)     │ (0, a²)           │ (0, 1)                │
+  ├───────────┼─────────────────────────┼───────────────────┼───────────────────────┤
+  │ output[2] │ (a²+b², a², a·b, 0)     │ (a·b, 0)          │ (1, 0)                │
+  ├───────────┼─────────────────────────┼───────────────────┼───────────────────────┤
+  │ output[3] │ (0, b², a·b, 2·a·b)     │ (a·b, 2·a·b)      │ (1, 2) ← what we have │
+  └───────────┴─────────────────────────┴───────────────────┴───────────────────────┘
+
+  Verdict for multi-readout
+
+  The (g, h) gradient direction is rigidly fixed across samples only at outputs 1, 2, and 3 — they have constant per-sample direction (0, 1), (1, 0), (1, 2) respectively. Output 0
+  already breaks the degeneracy on its own, because (a²+b², b²) is not proportional to any fixed direction — it varies with (a, b), and over samples the gradient spans 2D.
+
+  Pair-wise: output[3] + any of {output[0], output[1], output[2]} gives linearly independent directions and breaks degeneracy. So multi-readout works as long as we don't pair only
+  mutually-stuck slots. (output[1] + output[2] also works: directions (0, 1) and (1, 0) are orthogonal.)
+
+  A surprise that came out of this: the cleanest minimal experiment isn't even multi-readout — it's single-readout at a different slot. Predicting a·b by reading output[0] instead
+  of output[3] would give a non-degenerate convergence (no init-frozen axis), with the optimum at (e=1, f=0, g=0, h=0). Same architecture, same loss shape, just a different readout
+   slot — and the orthogonal-axis-frozen story would not survive that change. That'd separate "the architecture has degeneracy" from "this particular readout has degeneracy", which
+   I think is a meaningfully different claim than the v1 result alone supports.
+
+  Caveat for v2
+
+  All of the above is for N=4 with v1's specific encoding (a, 0, b, 0). v2 changes both: N grows (one-hot op makes it 6 or 7), and out_0=1 changes the values that propagate through
+   input · input. The hidden coefficients become different functions of (a, b), so the path-count vectors per output slot need re-derivation. The criterion generalises — readouts
+  whose path-count vectors span the bias subspace will break degeneracy — but the specific table doesn't carry over.
+
+  Practical suggestion: once v2's encoding is concrete, derive the path-count vectors first (it's the same procedure, ~5 minutes of bookkeeping), confirm the chosen readout
+  configuration spans the relevant subspace, and only then run training. Otherwise the experiment risks being non-informative — which is the failure mode you flagged.
+  
+  This is a substantively new finding, not just confirmation of the prior story. Worth saying out loud what changed.
+
+**The single-readout-at-a-different-slot observation is the real result here.** Up to now, the framing has been "the architecture has a 1-D degenerate minimum, and multi-readout might break it." The path-count table shows that's wrong — or more precisely, ill-located. The degeneracy isn't an architectural property; it's a property of *output[3] specifically*. Outputs 1 and 2 also have rigid per-sample directions (so they'd have their own degeneracies, just along different axes), but output[0] has a per-sample direction that *varies with the input* — (a²+b², b²) is not a fixed vector in (g, h) space, it rotates as (a, b) changes. Over samples, the gradient already spans 2D. Single-readout at output[0] would have no frozen orthogonal axis at all.
+
+That changes the v1 narrative meaningfully. "The architecture computes redundant features and SGD can't choose between them" becomes "*output[3] reads two redundant pathways with a constant 1:2 ratio,* and SGD can't choose between them when that's the only readout." Output[0] reads features whose ratio depends on the input, so the choice gets made for it sample-by-sample. Same architecture, completely different training geometry, just from which slot you call the prediction.
+
+**This also retrospectively explains why output[0] looked "wasteful" in your earlier breakdown.** It was carrying 0.2·a² + 0.6·b² at convergence — a non-trivial linear combination of two features. From the loss's perspective that was overhead. From the gradient-geometry perspective, output[0] is the slot where the readout *actually engages with the rule's structure* rather than collapsing it onto a fixed direction. The "wasted" slot was the well-conditioned one. The "live" slot was the degenerate one. That's a clean inversion of the original framing and I think it's worth flagging in whatever writeup this becomes.
+
+**On the suggestion to run single-readout at output[0] before v2.** I'd second this strongly. It's the cleanest possible separation experiment: same N=4, same encoding, same loss shape, same hidden computation — only the readout slot changes. If output[0]-readout converges init-independently to (e=1, f=0, g=0, h=0) across seeds, you've localized the degeneracy to output[3]'s path-count structure specifically. If it doesn't — if some other degeneracy shows up — then there's a deeper symmetry you haven't found yet and v2 was going to be confounded anyway. Either way you learn more from this one-line change than from jumping to v2.
+
+The thing I'd watch for: output[0] reading e·h_2 + g·(h_1+h_3) + h·h_3 means the optimum (e=1, f=0, g=0, h=0) puts all the weight on a single path (e through h_2 = a·b). That's a corner solution, not interior. Corner solutions can have their own training pathologies — slow convergence if the gradient direction in (e, f, g, h) space points mostly along axes you're trying to zero out, or sign-flipping if init is on the wrong side. Worth checking the full 4-D Hessian at that minimum, not just (g, h), because the cleanness of the v1 (g, h) story was partly because e and f were trivially zero. At output[0], e is the load-bearing parameter and the geometry might not be as tidy.
+
+**On the v2 caveat.** Right call. The path-count vectors are encoding-specific, and v2 changes the encoding in two ways simultaneously (N grows, out_0=1 changes propagation). Re-deriving the table is cheap; running v2 without it and then trying to interpret the result is expensive. The criterion you stated — "readouts whose path-count vectors span the bias subspace break degeneracy" — is the right general principle, and it's the criterion that should drive v2's readout choice rather than picking readouts and hoping.
+
+One small thing: when you re-derive for v2, the path-count vectors will be functions of (a, b, op) rather than (a, b). That means "spans the bias subspace" needs to hold *over the joint distribution of inputs and ops*, not just over (a, b) at fixed op. A readout configuration could span the subspace at op=0 and collapse to a fixed direction at op=1, or vice versa, and you'd see partial degeneracy — degenerate within op-slices, non-degenerate across them. Probably fine in practice but worth being explicit about which distribution the spanning condition is evaluated over.
+
+Genuinely nice piece of analysis. The output[0] observation is the kind of thing that wouldn't have surfaced without writing the full path-count table — staring at output[3] alone would have kept you in the multi-readout framing indefinitely.
+
+Good — flag noted, I'll have it ready when you ask. But the parenthetical at the end is worth picking up now, because I think you're pointing at something real and I want to make sure we have the right answer to it before it goes in the abstract.
+
+"Rational values that were also exact" is the surprise. (0.2, 0.4) and (0.4, 0.3) and (0.56, 0.22) all to four decimals — these look like coincidences in a way that 0.1827... wouldn't.
+
+But once you have the closed form t* = (1 − g₀ − 2h₀)/5, the rationality is forced, not coincidental. The denominator is 5 = ‖(1, 2)‖² — an integer because the path-count vector has integer components (you can't have a fractional number of routing pairs). The numerator is a linear function of the init with integer coefficients (1, 1, 2). So if you start from rational init, you land at rational coordinates, full stop. (0, 0) → 1/5 along (1, 2) → (1/5, 2/5) = (0.2, 0.4). (0.5, 0.5) → −1/10 along (1, 2) → (0.4, 0.3). The "exactness" is just that there's no floating-point drift to hide the rationality — SGD with quadratic loss and rank-1 Hessian converges to the Gauss-Newton point in finite steps (effectively one, modulo learning rate), so you're not approximating a limit, you're computing it.
+
+The deeper way to say it: the rational landings are a *fingerprint of the discrete combinatorial structure underlying the architecture*. Path counts are integers because they count something. The Hessian factors as 2·(a·b)² · vvᵀ where v has integer entries. That integer-ness propagates through the closed form and pops out as rational coordinates at convergence. If you saw irrational landings, *that* would be the surprise — it would mean something non-combinatorial was leaking into the geometry.
+
+So the framing for the abstract isn't "the weights happened to take rational values" — it's "the combinatorial structure of the routing is fully visible in the convergence point, which is why the values are exact rationals with small denominators." That's a stronger claim and it's the one the math actually supports. It also connects naturally to the broader interpretability point: when you find rationals at convergence, you're not looking at trained-in noise, you're looking at the architecture's discrete skeleton showing through.
+
+One caveat for the abstract: this is specifically about the *constrained* parameters (g, h) where the degeneracy lives. e and f, in the v1 op=0 case, were trivially zero because the rule didn't route them to OUT_0 at all — that's a different kind of "exact rational" (zero is exact for trivial reasons). Worth distinguishing the two when you write it up: the trivial exactness (parameters the loss doesn't see) vs. the structural exactness (parameters the loss sees, but only through an integer-valued path-count direction). The second is the interesting one.
+
+Ready for the abstract whenever you want to call it.
+
+The separation experiment fires cleanly. All 12 tests pass; specifically the v1.5 results:                                                                                        
+                                                                                                                                                                                    
+  Init-independence at output[0]: confirmed. All five inits — including e = −1 (wrong-side, requires SGD to sign-flip), f = 0.7 (structurally frozen slot held off-zero), and (0.5, 
+  0.5, 0.5, 0.5) (all components active) — landed at the same (e, g, h) = (1, 0, 0) to within 0.05. Across pairs of inits, e, g, h agree to within 0.05 element-wise. No frozen     
+  orthogonal axis.                                                                                                                                                                  
+                                                                                                                                                                                    
+  f is structurally dead at output[0]: path-count component is 0 for every sample, regardless of (a, b). So f stays at its init value — exactly symmetric to e being structurally   
+  dead at output[3]. The corner-solution sign-flip concern didn't bite either: e = −1 traversed all the way to e ≈ +1.                                                              
+                                                                                                                                                                                    
+  Hessian at the optimum: smallest eigenvalue ≈ 0 with eigenvector aligned to the f-axis (>0.99 cosine); three other eigenvalues all >100. Full rank in (e, g, h). So the v1        
+  zero-curvature direction was readout-specific, not architectural — at output[0] it doesn't exist.                                                                                 
+                                                                                                                                                                                    
+  What this empirically settles:
+
+  ▎ The v1 degeneracy is a property of output[3]'s rigid path-count structure, not a property of the architecture.
+
+  The "live" slot was the degenerate one; the "wasted" slot was the well-conditioned one. Same neuron, same forward, same loss shape, same hidden = input · input — change one
+  integer (readout_slot), get a completely different training geometry. That's the inversion you flagged, now empirically pinned.
+
+  A couple of things worth pulling forward:
+
+  - The criterion you stated is now the design tool. "Readouts whose per-sample path-count vectors span the bias subspace break degeneracy" isn't just a v2 prediction — it's the
+  rule for which readout slot to pick at any N. For v1's encoding it nominates output[0] directly.
+  - Spanning over the joint distribution of (a, b, op), your point about partial degeneracy across op-slices: noted, will derive the v2 path-count vectors as functions of (a, b,
+  op) and check the spanning condition op-by-op as well as marginally.
+  - out_0 = 1 interacts with this analysis non-trivially. With input[OUT_0] = 1 instead of 0, hidden values pick up new terms from cross-products (i, 3) and (3, j), and the
+  path-count vectors change. Would want to re-derive the table specifically for out_0 = 1 before deciding the readout slot for v2 — the slot that's well-conditioned with out_0 = 0
+  may not still be well-conditioned with out_0 = 1.
+
+  Saving this finding to memory so it's not lost when the conversation rolls forward.
+
+  Wrote 2 memories (ctrl+o to expand)   
+
+● Memory saved. Where this leaves us:                                                                                                                                               
+   
+  - output[0] is the well-conditioned single-readout for v1's encoding. Init-independent convergence to a unique optimum, with a clean structural dead-slot (f).                    
+  - The methodology — derive path-count vectors first, pick readout by spanning condition — is the design tool for v2, v3, and any future variant.
+  - v2's actual readout choice depends on the v2 path-count table, which depends on out_0=1 and one-hot ops, neither of which is in scope yet.                                      
+                                                            
+  Want to push to v2, or keep digging into v1's structure (e.g., look at outputs 1 and 2 — they're rigid-direction like output[3] but along different axes, which would let us
+  predict their degeneracy ahead of time and confirm with the same machinery)?
+  
+  Strong agreement on the closure path. Running outputs 1 and 2 with predictions baked in.
+  Before training, the path-count table from the v1 derivation gives explicit predictions for each:                                                                                 
+   
+  output[1] path-count (a·b, 2·a·b, 0, a²) →                                                                                                                                        
+  - (e, f) gradient (a·b, 2·a·b) ∝ (1, 2) rigidly per sample → same (1, 2)-degeneracy as output[3] but in (e, f) instead of (g, h)
+  - g component is 0 every sample → g structurally dead
+  - h component is a², independent direction → h converges to 0
+  - Optimum: e + 2f = 1, h = 0, g = g₀. Closed form t* = (1 − e₀ − 2·f₀)/5, ‖(1, 2)‖² = 5 (same denominator as output[3]).
+  output[2] path-count (a²+b², a², a·b, 0) →
+  - (e, f, g) directions vary independently with (a, b) → 3D well-conditioned (same shape as output[0])
+  - h component is 0 every sample → h structurally dead
+  - Optimum: (e, f, g) = (0, 0, 1) regardless of init; h = h₀.
+  So one prediction subtly extends what you sketched: at output[1], the (g, h)-plane story does say "g frozen, h converges" — but the full picture has its own (1, 2)-degeneracy in
+  (e, f), mirroring output[3]'s structure exactly. ‖v‖² is 5 in both cases, not 1 for output[1] vs 5 for output[3]. The architecture has a paired topology: outputs 1 and 3 are
+  degenerate twins (rigid (1, 2) in different coordinate planes); outputs 0 and 2 are well-conditioned twins. Each output structurally kills a different bias coefficient
+  (cyclically: output[k] kills bias index (k + 1) mod 4).
+  If those predictions land, the framework is genuinely predictive on every readout in this architecture. Coding now.
+  
+Good catch — and yes, this is the prediction worth making. The pairing is the strongest finding yet, because it's not "look, here's another readout that fits the framework" — it's a *structural* claim about the architecture: outputs come in degenerate / non-degenerate pairs, with the degeneracy along (1, 2) in different coordinate planes, and each output kills a different bias coefficient cyclically. That's a single-sentence description of all four readouts simultaneously, predicted from a path-count table you derived once.
+
+The cyclic dead-slot pattern (output[k] kills bias index (k + 1) mod 4) is the part that should land cleanly if the framework is right. It's a discrete structural fact — there's no continuous parameter to fudge, no almost-zero to argue about. Either the framework predicts which bias coefficient is structurally dead at each readout and the experiment confirms it, or it doesn't and something is wrong with the path-count derivation. Crisp falsifiability.
+
+A few things to watch for in the run:
+
+**The (e, f) degeneracy at output[1] should look exactly like (g, h) at output[3] — not just qualitatively but quantitatively.** Same closed form structure, same ‖v‖² = 5, same Δf/Δe = 2 ratio, same per-sample rank-1 Hessian factoring as 2·(a·b)² · (1, 2)(1, 2)ᵀ in the (e, f) block. If any of those quantitative pieces drift, the "twins" framing is too strong and the right framing is "both are (1,2)-degenerate but for slightly different reasons." Worth checking the (e, f) Hessian block at output[1] explicitly, the way you did for (g, h) at output[3] — that's the equivalent structural confirmation.
+
+**At output[2], the corner solution is (0, 0, 1) — three structurally zero components and one structurally one.** All three of e, f, g go to zero from arbitrary inits, with g picking up the work. The thing to watch is whether the three "zero" parameters all converge at similar rates or whether one is slow — if the gradient direction in (e, f, g) space points mostly along g (the load-bearing axis) and only weakly along the others, you could see g hit 1 quickly while e and f drift slowly toward zero. Not a problem for the framework but it's a thing the abstract should know.
+
+**Sign flips matter for the symmetric prediction at output[1].** You verified the e = −1 sign-flip case at output[0] traversed cleanly to e ≈ +1. The analogous test at output[1] is e₀ negative with f₀ such that e₀ + 2·f₀ is well below 1 — does SGD walk e from negative to positive while f catches the rest? Same concern as before, probably same answer, but worth including in the seed sweep so you can claim sign-flip robustness as a general property of the framework rather than a one-off observation at output[0].
+
+**One small thing on the "cyclic" claim.** "Output[k] kills bias index (k + 1) mod 4" is a beautiful description if it holds, but it's worth checking the indexing convention before committing to it in writing — the path-count table you derived shows output[0] has a 0 in slot 1 (f), output[1] has a 0 in slot 2 (g), output[2] has a 0 in slot 3 (h), output[3] has a 0 in slot 0 (e). That is (k + 1) mod 4, yes. But it's specifically dependent on how the multiplication table was set up, and a different routing convention would shift the cycle. The cyclic structure is real, but it's a property of the specific multiplication table, not a deep architectural invariant. Worth being precise about that distinction in the writeup — "the routing rule produces a cyclic dead-slot pattern" is the right framing, "the architecture has a cyclic dead-slot pattern" overstates.
+
+If outputs 1 and 2 fire as predicted, you have:
+- Predictive framework validated on all four readouts at the same encoding
+- Twin structure (degenerate / non-degenerate pairing) as a structural finding
+- Cyclic dead-slot pattern as a discrete combinatorial fingerprint
+- Closed forms for landing point and convergence rate at every readout
+- Hessian rank profile predicted from path-count tables at every readout
+
+That's a complete story at v1's encoding. Run it.
