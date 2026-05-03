@@ -1,4 +1,4 @@
-"""Graded projective basis with cyclic squaring rule, plus a single neuron.
+"""Graded projective basis with cyclic squaring rule, plus the v1 neuron.
 
 Basis  k_0, ..., k_{N-1}  with multiplication rules
 
@@ -6,24 +6,25 @@ Basis  k_0, ..., k_{N-1}  with multiplication rules
     k_i · k_j  =  k_{(2i + j) mod N}    (mixed products, i ≠ j)
 
 The mixed-product rule is asymmetric — k_0·k_1 = k_1 but k_1·k_0 = k_2 — so
-the algebra is non-commutative.  Other rules respecting the squaring identity
-exist; this is the simplest non-commutative one that scales to any N.
+the algebra is non-commutative.
 
 A ``Projective(N)`` value is a length-N coefficient vector over the reals.
 All arithmetic stays in raw numpy / python — sympy does not cross this
 boundary.
 
-v0 encoding
------------
+Encoding
+--------
 Four slots ``(in_0, op_0, in_1, out_0) ↦ (k_0, k_1, k_2, k_3)``.
 ``in_0`` and ``in_1`` are the two operands; ``op_0`` is an integer enum
-(currently constant at 2 = ``+``, the only op v0 trains on); ``out_0`` is
-initialised to 0 in inputs and is read out from the network output as the
-prediction.
+(set to 0 for v1 multiplication training); ``out_0`` is initialised to 0
+in inputs and is read out from the network output as the prediction by
+default.
 
-The neuron has one bias (also a 4-slot Projective).  Forward is
-``output = input · bias``; prediction is ``output[OUT_0]``; loss is squared
-error; gradients are computed analytically from the bilinear product.
+The v1 neuron (``SquaredInputProjectiveNeuron``) has one bias (also a
+4-slot Projective).  Forward is ``output = (input · input) · bias``;
+prediction is ``output[readout_slot]`` (default ``OUT_0`` = k_3); loss is
+squared error; gradients are computed analytically from the bilinear
+product.
 """
 
 from __future__ import annotations
@@ -93,47 +94,6 @@ def encode_problem(a: float, op: int, b: float, n: int = 4) -> Projective:
     coeffs[OP_0] = op
     coeffs[IN_1] = b
     return Projective(coeffs)
-
-
-@dataclass
-class ProjectiveNeuron:
-    """Single-layer neuron over the projective algebra.
-
-    ``output = input · bias``; prediction is the ``out_0`` (k_3) coefficient
-    of the output.  Loss is squared error; SGD updates the 4 bias scalars
-    using analytic gradients.
-    """
-    bias: Projective
-
-    @staticmethod
-    def zeros(n: int = 4) -> "ProjectiveNeuron":
-        return ProjectiveNeuron(bias=Projective.zeros(n))
-
-    def feedforward(self, input_: Projective) -> Projective:
-        return input_ * self.bias
-
-    def predict(self, input_: Projective) -> float:
-        return self.feedforward(input_)[OUT_0]
-
-    def gradients(self, input_: Projective, target: float) -> np.ndarray:
-        """``dL / d(bias_j)`` for ``L = (output[OUT_0] − target) ** 2``."""
-        n = input_.n
-        residual = self.predict(input_) - target
-        d_pred = np.zeros(n)
-        for j in range(n):
-            for i in range(n):
-                if basis_product_index(i, j, n) == OUT_0:
-                    d_pred[j] += input_.coeffs[i]
-        return 2.0 * residual * d_pred
-
-    def update(self, grad: np.ndarray, lr: float) -> None:
-        self.bias.coeffs -= lr * grad
-
-    def step(self, input_: Projective, target: float, lr: float) -> float:
-        pred = self.predict(input_)
-        grad = self.gradients(input_, target)
-        self.update(grad, lr)
-        return pred
 
 
 @dataclass
