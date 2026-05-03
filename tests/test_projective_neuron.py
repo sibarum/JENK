@@ -21,9 +21,8 @@ import numpy as np
 
 from symbolic.projective import (
     IN_0, OP_0, IN_1, OUT_0,
-    N_V2,
     Projective, ProjectiveNeuron, SquaredInputProjectiveNeuron,
-    basis_product_index, encode_problem, encode_problem_v2,
+    basis_product_index, encode_problem,
 )
 
 

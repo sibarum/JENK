@@ -1,0 +1,54 @@
+v12 two-op feasibility analysis
+==============================================================================
+Question: at v2 N=7 layout with op_+ at slot 2, op_* at slot 3,
+does there exist a (bias, k_plus, k_mul) such that:
+  output[k_plus] under op_+ encoding ≡ a + b'
+  output[k_mul] under op_* encoding ≡ a · b'
+simultaneously?
+
+Slots: k_0=in_0(a) k_1=0 k_2=op_+ k_3=op_* k_4=0 k_5=in_1(b') k_6=out_0(=1)
+
+=== Hidden = input · input, per active op ===
+
+op_+ (slot 2 active):
+  hidden[0] = 2
+  hidden[1] = a**2
+  hidden[2] = a + 2*bp
+  hidden[3] = a*bp + bp + 2
+  hidden[4] = a
+  hidden[5] = a*bp + a + bp
+  hidden[6] = a + bp**2
+
+op_* (slot 3 active):
+  hidden[0] = 1
+  hidden[1] = a**2 + 1
+  hidden[2] = bp
+  hidden[3] = a*bp + a + bp
+  hidden[4] = bp + 1
+  hidden[5] = a*bp + a + 1
+  hidden[6] = 2*a + bp**2 + bp
+
+==============================================================================
+Part 1: SAME readout for both ops (the v10/v11 setup)
+==============================================================================
+  readout=k_0: INFEASIBLE  (rank 6, 12 constraints) -- inconsistent (rank M=6 vs [M|c]=7)
+  readout=k_1: INFEASIBLE  (rank 6, 12 constraints) -- inconsistent (rank M=6 vs [M|c]=7)
+  readout=k_2: INFEASIBLE  (rank 6, 12 constraints) -- inconsistent (rank M=6 vs [M|c]=7)
+  readout=k_3: INFEASIBLE  (rank 6, 10 constraints) -- inconsistent (rank M=6 vs [M|c]=7)
+  readout=k_4: INFEASIBLE  (rank 6, 10 constraints) -- inconsistent (rank M=6 vs [M|c]=7)
+  readout=k_5: INFEASIBLE  (rank 7, 12 constraints) -- inconsistent (rank M=7 vs [M|c]=8)
+  readout=k_6: INFEASIBLE  (rank 6, 12 constraints) -- inconsistent (rank M=6 vs [M|c]=7)
+
+  Single-readout joint feasibility: NONE work.
+  -> v10/v11 empirical failure is structural, not optimization.
+
+==============================================================================
+Part 2: DIFFERENT readouts per op (multi-readout with shared bias)
+==============================================================================
+
+Total pairs checked: 42
+Pairs with non-trivial joint solution: 0
+
+NO multi-readout pair admits a joint solution.
+-> Two op categories are not jointly feasible with shared bias
+   under this routing rule. Next step: per-category bias (= 2 neurons).

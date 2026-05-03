@@ -95,35 +95,6 @@ def encode_problem(a: float, op: int, b: float, n: int = 4) -> Projective:
     return Projective(coeffs)
 
 
-# --- v2 encoding (one-hot op, out_0 = 1, N = 7) -----------------------------
-
-N_V2 = 7
-V2_IN_0 = 0
-V2_OP_SUB = 1   # k_1 = op_-
-V2_OP_ADD = 2   # k_2 = op_+
-V2_OP_MUL = 3   # k_3 = op_*
-V2_OP_DIV = 4   # k_4 = op_/
-V2_IN_1 = 5
-V2_OUT_0 = 6
-
-V2_OP_SLOT = {'-': V2_OP_SUB, '+': V2_OP_ADD, '*': V2_OP_MUL, '/': V2_OP_DIV}
-
-
-def encode_problem_v2(a: float, op: str, b: float) -> Projective:
-    """v2 encoding: one-hot op, ``out_0 = 1``, N = 7.
-
-    Slots: ``(in_0, op_-, op_+, op_*, op_/, in_1, out_0)``.  The active op
-    slot is 1.0; the other op slots are 0.  ``out_0`` is always 1.0 (per
-    the planned v2 init that closes v1's wasted-slot issue).
-    """
-    coeffs = np.zeros(N_V2)
-    coeffs[V2_IN_0] = a
-    coeffs[V2_OP_SLOT[op]] = 1.0
-    coeffs[V2_IN_1] = b
-    coeffs[V2_OUT_0] = 1.0
-    return Projective(coeffs)
-
-
 @dataclass
 class ProjectiveNeuron:
     """Single-layer neuron over the projective algebra.
@@ -186,7 +157,7 @@ class SquaredInputProjectiveNeuron:
     *non-zero constant* ``op`` value ``c``, the squared input picks up
     ``c·a``, ``c·b``, ``c²`` terms that can't all be zeroed at the
     output without losing the ``a·b`` coefficient.  So v1 trains with
-    ``op = 0``.  v2's one-hot op encoding will resolve this.
+    ``op = 0``.
     """
 
     bias: Projective
