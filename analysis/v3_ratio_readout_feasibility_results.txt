@@ -1,0 +1,146 @@
+v3 ratio-readout joint feasibility — definitive analytical check
+========================================================================
+Architecture: N=5, op = (op_num, op_den), out_0 = 1.
+Op map:  + → (1, 2),  − → (−1, 2),  * → (2, 1),  / → (−2, 1).
+Constraint per op:  output[k_N] = target · output[k_D]
+                    (for /, b·output[k_N] = a·output[k_D])
+
+--- hidden = input · input, per op ---
+
++ (op_num=1, op_den=2, target=a + b):
+  hidden[0] = 2*b + 5
+  hidden[1] = a**2 + a*b + a + b + 1
+  hidden[2] = 3*a + 3*b + 1
+  hidden[3] = a*b + a + 2*b + 6
+  hidden[4] = 3*a + b**2 + 3
+
+- (op_num=-1, op_den=2, target=a - b):
+  hidden[0] = 1
+  hidden[1] = a**2 + a*b - a + b - 1
+  hidden[2] = a + b + 1
+  hidden[3] = a*b + a + 2*b + 6
+  hidden[4] = 3*a + b**2 - 3
+
+* (op_num=2, op_den=1, target=a*b):
+  hidden[0] = 3*b + 4
+  hidden[1] = a**2 + a*b + 2*a + b + 2
+  hidden[2] = 3*a + 3*b + 4
+  hidden[3] = a*b + a + b + 2
+  hidden[4] = 2*a + b**2 + 4
+
+/ (op_num=-2, op_den=1, target=a/b):
+  hidden[0] = -b
+  hidden[1] = a**2 + a*b - 2*a + b - 2
+  hidden[2] = -a - b + 4
+  hidden[3] = a*b + a + b + 2
+  hidden[4] = 2*a + b**2 - 4
+
+========================================================================
+Joint feasibility scan over all (k_N, k_D) pairs (k_N ≠ k_D)
+========================================================================
+  (k_N=0, k_D=1): FEASIBLE  40 constraints, rank 5
+      solution: {e0: 0, e1: 0, e2: 0, e3: 0, e4: 0}
+      residuals: {'+': 0, '-': 0, '*': 0, '/': 0}
+      all zero: True
+  (k_N=0, k_D=2): FEASIBLE  37 constraints, rank 5
+      solution: {e0: 0, e1: 0, e2: 0, e3: 0, e4: 0}
+      residuals: {'+': 0, '-': 0, '*': 0, '/': 0}
+      all zero: True
+  (k_N=0, k_D=3): FEASIBLE  36 constraints, rank 5
+      solution: {e0: 0, e1: 0, e2: 0, e3: 0, e4: 0}
+      residuals: {'+': 0, '-': 0, '*': 0, '/': 0}
+      all zero: True
+  (k_N=0, k_D=4): FEASIBLE  40 constraints, rank 5
+      solution: {e0: 0, e1: 0, e2: 0, e3: 0, e4: 0}
+      residuals: {'+': 0, '-': 0, '*': 0, '/': 0}
+      all zero: True
+  (k_N=1, k_D=0): FEASIBLE  40 constraints, rank 5
+      solution: {e0: 0, e1: 0, e2: 0, e3: 0, e4: 0}
+      residuals: {'+': 0, '-': 0, '*': 0, '/': 0}
+      all zero: True
+  (k_N=1, k_D=2): FEASIBLE  37 constraints, rank 5
+      solution: {e0: 0, e1: 0, e2: 0, e3: 0, e4: 0}
+      residuals: {'+': 0, '-': 0, '*': 0, '/': 0}
+      all zero: True
+  (k_N=1, k_D=3): FEASIBLE  36 constraints, rank 5
+      solution: {e0: 0, e1: 0, e2: 0, e3: 0, e4: 0}
+      residuals: {'+': 0, '-': 0, '*': 0, '/': 0}
+      all zero: True
+  (k_N=1, k_D=4): FEASIBLE  40 constraints, rank 5
+      solution: {e0: 0, e1: 0, e2: 0, e3: 0, e4: 0}
+      residuals: {'+': 0, '-': 0, '*': 0, '/': 0}
+      all zero: True
+  (k_N=2, k_D=0): FEASIBLE  38 constraints, rank 5
+      solution: {e0: 0, e1: 0, e2: 0, e3: 0, e4: 0}
+      residuals: {'+': 0, '-': 0, '*': 0, '/': 0}
+      all zero: True
+  (k_N=2, k_D=1): FEASIBLE  38 constraints, rank 5
+      solution: {e0: 0, e1: 0, e2: 0, e3: 0, e4: 0}
+      residuals: {'+': 0, '-': 0, '*': 0, '/': 0}
+      all zero: True
+  (k_N=2, k_D=3): FEASIBLE  34 constraints, rank 5
+      solution: {e0: 0, e1: 0, e2: 0, e3: 0, e4: 0}
+      residuals: {'+': 0, '-': 0, '*': 0, '/': 0}
+      all zero: True
+  (k_N=2, k_D=4): FEASIBLE  38 constraints, rank 5
+      solution: {e0: 0, e1: 0, e2: 0, e3: 0, e4: 0}
+      residuals: {'+': 0, '-': 0, '*': 0, '/': 0}
+      all zero: True
+  (k_N=3, k_D=0): FEASIBLE  39 constraints, rank 5
+      solution: {e0: 0, e1: 0, e2: 0, e3: 0, e4: 0}
+      residuals: {'+': 0, '-': 0, '*': 0, '/': 0}
+      all zero: True
+  (k_N=3, k_D=1): FEASIBLE  39 constraints, rank 5
+      solution: {e0: 0, e1: 0, e2: 0, e3: 0, e4: 0}
+      residuals: {'+': 0, '-': 0, '*': 0, '/': 0}
+      all zero: True
+  (k_N=3, k_D=2): FEASIBLE  36 constraints, rank 5
+      solution: {e0: 0, e1: 0, e2: 0, e3: 0, e4: 0}
+      residuals: {'+': 0, '-': 0, '*': 0, '/': 0}
+      all zero: True
+  (k_N=3, k_D=4): FEASIBLE  39 constraints, rank 5
+      solution: {e0: 0, e1: 0, e2: 0, e3: 0, e4: 0}
+      residuals: {'+': 0, '-': 0, '*': 0, '/': 0}
+      all zero: True
+  (k_N=4, k_D=0): FEASIBLE  40 constraints, rank 5
+      solution: {e0: 0, e1: 0, e2: 0, e3: 0, e4: 0}
+      residuals: {'+': 0, '-': 0, '*': 0, '/': 0}
+      all zero: True
+  (k_N=4, k_D=1): FEASIBLE  40 constraints, rank 5
+      solution: {e0: 0, e1: 0, e2: 0, e3: 0, e4: 0}
+      residuals: {'+': 0, '-': 0, '*': 0, '/': 0}
+      all zero: True
+  (k_N=4, k_D=2): FEASIBLE  37 constraints, rank 5
+      solution: {e0: 0, e1: 0, e2: 0, e3: 0, e4: 0}
+      residuals: {'+': 0, '-': 0, '*': 0, '/': 0}
+      all zero: True
+  (k_N=4, k_D=3): FEASIBLE  35 constraints, rank 5
+      solution: {e0: 0, e1: 0, e2: 0, e3: 0, e4: 0}
+      residuals: {'+': 0, '-': 0, '*': 0, '/': 0}
+      all zero: True
+
+========================================================================
+VERDICT (4-op joint): 20 feasible pair(s)
+========================================================================
+  Non-trivial (bias ≠ 0) pairs: 0
+  All feasible pairs are trivial (bias=0 → both outputs = 0 → undefined N/D).
+  (B) FAILS for the full 4-op set under this encoding.
+
+========================================================================
+Subset diagnosis: which op-subsets allow a non-trivial bias?
+========================================================================
+  {+}: NO non-trivial pair
+  {-}: NO non-trivial pair
+  {*}: NO non-trivial pair
+  {/}: NO non-trivial pair
+  {+,-}: NO non-trivial pair
+  {+,*}: NO non-trivial pair
+  {+,/}: NO non-trivial pair
+  {-,*}: NO non-trivial pair
+  {-,/}: NO non-trivial pair
+  {*,/}: NO non-trivial pair
+  {+,-,*}: NO non-trivial pair
+  {+,-,/}: NO non-trivial pair
+  {+,*,/}: NO non-trivial pair
+  {-,*,/}: NO non-trivial pair
+  {+,-,*,/}: NO non-trivial pair

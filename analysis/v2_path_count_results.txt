@@ -1,0 +1,320 @@
+v2 path-count tables — one-hot op, out_0 = 1, N = 7
+========================================================================
+Slot layout: k_0=in_0(a) k_1=op_- k_2=op_+ k_3=op_* k_4=op_/ k_5=in_1(b) k_6=out_0(=1)
+Targets: 1=a−b, 2=a+b, 3=a·b, 4=a/b
+
+--- Op slot k_1 active (sub (−)); target = a - b ---
+hidden = input · input:
+  hidden[0] = b + 1
+  hidden[1] = a**2 + a + 1
+  hidden[2] = a + b + 1
+  hidden[3] = a*b + b
+  hidden[4] = b
+  hidden[5] = a*b + a
+  hidden[6] = a + b**2 + 1
+
+--- Op slot k_2 active (add (+)); target = a + b ---
+hidden = input · input:
+  hidden[0] = 2
+  hidden[1] = a**2
+  hidden[2] = a + 2*b
+  hidden[3] = a*b + b + 2
+  hidden[4] = a
+  hidden[5] = a*b + a + b
+  hidden[6] = a + b**2
+
+--- Op slot k_3 active (mul (*)); target = a*b ---
+hidden = input · input:
+  hidden[0] = 1
+  hidden[1] = a**2 + 1
+  hidden[2] = b
+  hidden[3] = a*b + a + b
+  hidden[4] = b + 1
+  hidden[5] = a*b + a + 1
+  hidden[6] = 2*a + b**2 + b
+
+--- Op slot k_4 active (div (/)); target = a/b ---
+hidden = input · input:
+  hidden[0] = b + 2
+  hidden[1] = a**2 + a
+  hidden[2] = b + 1
+  hidden[3] = a*b + b
+  hidden[4] = a
+  hidden[5] = a*b + a + 1
+  hidden[6] = a + b**2 + b
+
+========================================================================
+Per-output-slot path-count summary
+========================================================================
+
+output[0]:
+  sub (−)  live=[1, 2, 3, 4, 5, 6] dead=[0] dim_spanned_over_(a,b)=6
+           bias[1]: a*b + b
+           bias[2]: a + b**2 + 1
+           bias[3]: a + b + 1
+           bias[4]: a*b + a
+           bias[5]: a**2 + a + 1
+           bias[6]: a + b**2 + b + 1
+  add (+)  live=[1, 2, 3, 4, 5, 6] dead=[0] dim_spanned_over_(a,b)=6
+           bias[1]: a*b + b + 2
+           bias[2]: a + b**2
+           bias[3]: a + 2*b
+           bias[4]: a*b + a + b
+           bias[5]: a**2
+           bias[6]: 2*a + b**2
+  mul (*)  live=[1, 2, 3, 4, 5, 6] dead=[0] dim_spanned_over_(a,b)=5
+           bias[1]: a*b + a + b
+           bias[2]: 2*a + b**2 + b
+           bias[3]: b
+           bias[4]: a*b + a + 1
+           bias[5]: a**2 + 1
+           bias[6]: 2*a + b**2 + 2*b + 1
+  div (/)  live=[1, 2, 3, 4, 5, 6] dead=[0] dim_spanned_over_(a,b)=6
+           bias[1]: a*b + b
+           bias[2]: a + b**2 + b
+           bias[3]: b + 1
+           bias[4]: a*b + a + 1
+           bias[5]: a**2 + a
+           bias[6]: 2*a + b**2 + b
+
+output[1]:
+  sub (−)  live=[0, 1, 2, 3, 4, 6] dead=[5] dim_spanned_over_(a,b)=6
+           bias[0]: 2*b + 1
+           bias[1]: b + 1
+           bias[2]: a*b + b
+           bias[3]: a + b**2 + 1
+           bias[4]: a + b + 1
+           bias[6]: a**2 + a + 1
+  add (+)  live=[0, 1, 2, 3, 4, 6] dead=[5] dim_spanned_over_(a,b)=6
+           bias[0]: a + 2
+           bias[1]: 2
+           bias[2]: a*b + b + 2
+           bias[3]: a + b**2
+           bias[4]: a + 2*b
+           bias[6]: a**2
+  mul (*)  live=[0, 1, 2, 3, 4, 6] dead=[5] dim_spanned_over_(a,b)=5
+           bias[0]: b + 2
+           bias[1]: 1
+           bias[2]: a*b + a + b
+           bias[3]: 2*a + b**2 + b
+           bias[4]: b
+           bias[6]: a**2 + 1
+  div (/)  live=[0, 1, 2, 3, 4, 6] dead=[5] dim_spanned_over_(a,b)=6
+           bias[0]: a + b + 2
+           bias[1]: b + 2
+           bias[2]: a*b + b
+           bias[3]: a + b**2 + b
+           bias[4]: b + 1
+           bias[6]: a**2 + a
+
+output[2]:
+  sub (−)  live=[0, 1, 2, 4, 5, 6] dead=[3] dim_spanned_over_(a,b)=6
+           bias[0]: a**2 + a + 1
+           bias[1]: a**2 + a + b + 1
+           bias[2]: b + 1
+           bias[4]: a + b**2 + 1
+           bias[5]: a + b + 1
+           bias[6]: a*b + a
+  add (+)  live=[0, 1, 2, 4, 5, 6] dead=[3] dim_spanned_over_(a,b)=6
+           bias[0]: a**2
+           bias[1]: a**2 + a
+           bias[2]: 2
+           bias[4]: a + b**2
+           bias[5]: a + 2*b
+           bias[6]: a*b + a + b
+  mul (*)  live=[0, 1, 2, 4, 5, 6] dead=[3] dim_spanned_over_(a,b)=5
+           bias[0]: a**2 + 1
+           bias[1]: a**2 + b + 2
+           bias[2]: 1
+           bias[4]: 2*a + b**2 + b
+           bias[5]: b
+           bias[6]: a*b + a + 1
+  div (/)  live=[0, 1, 2, 4, 5, 6] dead=[3] dim_spanned_over_(a,b)=6
+           bias[0]: a**2 + a
+           bias[1]: a**2 + 2*a
+           bias[2]: b + 2
+           bias[4]: a + b**2 + b
+           bias[5]: b + 1
+           bias[6]: a*b + a + 1
+
+output[3]:
+  sub (−)  live=[0, 2, 3, 4, 5, 6] dead=[1] dim_spanned_over_(a,b)=5
+           bias[0]: a*b + a
+           bias[2]: a + 2*b + 1
+           bias[3]: b + 1
+           bias[4]: a*b + b
+           bias[5]: a + b**2 + 1
+           bias[6]: a + b + 1
+  add (+)  live=[0, 2, 3, 4, 5, 6] dead=[1] dim_spanned_over_(a,b)=5
+           bias[0]: a*b + a + b
+           bias[2]: 2*a + 2*b
+           bias[3]: 2
+           bias[4]: a*b + b + 2
+           bias[5]: a + b**2
+           bias[6]: a + 2*b
+  mul (*)  live=[0, 2, 3, 4, 5, 6] dead=[1] dim_spanned_over_(a,b)=4
+           bias[0]: a*b + a + 1
+           bias[2]: 2*b + 1
+           bias[3]: 1
+           bias[4]: a*b + a + b
+           bias[5]: 2*a + b**2 + b
+           bias[6]: b
+  div (/)  live=[0, 2, 3, 4, 5, 6] dead=[1] dim_spanned_over_(a,b)=5
+           bias[0]: a*b + a + 1
+           bias[2]: a + b + 1
+           bias[3]: b + 2
+           bias[4]: a*b + b
+           bias[5]: a + b**2 + b
+           bias[6]: b + 1
+
+output[4]:
+  sub (−)  live=[0, 1, 2, 3, 4, 5] dead=[6] dim_spanned_over_(a,b)=5
+           bias[0]: a + b + 1
+           bias[1]: a*b + a
+           bias[2]: a**2 + a + 1
+           bias[3]: a*b + 2*b
+           bias[4]: b + 1
+           bias[5]: a*b + b
+  add (+)  live=[0, 1, 2, 3, 4, 5] dead=[6] dim_spanned_over_(a,b)=5
+           bias[0]: a + 2*b
+           bias[1]: a*b + a + b
+           bias[2]: a**2
+           bias[3]: a*b + a + b + 2
+           bias[4]: 2
+           bias[5]: a*b + b + 2
+  mul (*)  live=[0, 1, 2, 3, 4, 5] dead=[6] dim_spanned_over_(a,b)=4
+           bias[0]: b
+           bias[1]: a*b + a + 1
+           bias[2]: a**2 + 1
+           bias[3]: a*b + a + 2*b + 1
+           bias[4]: 1
+           bias[5]: a*b + a + b
+  div (/)  live=[0, 1, 2, 3, 4, 5] dead=[6] dim_spanned_over_(a,b)=5
+           bias[0]: b + 1
+           bias[1]: a*b + a + 1
+           bias[2]: a**2 + a
+           bias[3]: a*b + a + b
+           bias[4]: b + 2
+           bias[5]: a*b + b
+
+output[5]:
+  sub (−)  live=[0, 1, 2, 3, 4, 5, 6] dead=[] dim_spanned_over_(a,b)=6
+           bias[0]: a + b**2 + 1
+           bias[1]: a + b + 1
+           bias[2]: a*b + a
+           bias[3]: a**2 + a + 1
+           bias[4]: b
+           bias[5]: b + 1
+           bias[6]: a*b + b
+  add (+)  live=[0, 1, 2, 3, 4, 5, 6] dead=[] dim_spanned_over_(a,b)=6
+           bias[0]: a + b**2
+           bias[1]: a + 2*b
+           bias[2]: a*b + a + b
+           bias[3]: a**2
+           bias[4]: a
+           bias[5]: 2
+           bias[6]: a*b + b + 2
+  mul (*)  live=[0, 1, 2, 3, 4, 5, 6] dead=[] dim_spanned_over_(a,b)=5
+           bias[0]: 2*a + b**2 + b
+           bias[1]: b
+           bias[2]: a*b + a + 1
+           bias[3]: a**2 + 1
+           bias[4]: b + 1
+           bias[5]: 1
+           bias[6]: a*b + a + b
+  div (/)  live=[0, 1, 2, 3, 4, 5, 6] dead=[] dim_spanned_over_(a,b)=6
+           bias[0]: a + b**2 + b
+           bias[1]: b + 1
+           bias[2]: a*b + a + 1
+           bias[3]: a**2 + a
+           bias[4]: a
+           bias[5]: b + 2
+           bias[6]: a*b + b
+
+output[6]:
+  sub (−)  live=[0, 1, 3, 4, 5, 6] dead=[2] dim_spanned_over_(a,b)=6
+           bias[0]: a*b + b
+           bias[1]: a + b**2 + 1
+           bias[3]: a*b + a
+           bias[4]: a**2 + a + 1
+           bias[5]: a*b + a + b
+           bias[6]: b + 1
+  add (+)  live=[0, 1, 3, 4, 5, 6] dead=[2] dim_spanned_over_(a,b)=5
+           bias[0]: a*b + b + 2
+           bias[1]: a + b**2
+           bias[3]: a*b + a + b
+           bias[4]: a**2
+           bias[5]: a*b + 2*a + b
+           bias[6]: 2
+  mul (*)  live=[0, 1, 3, 4, 5, 6] dead=[2] dim_spanned_over_(a,b)=5
+           bias[0]: a*b + a + b
+           bias[1]: 2*a + b**2 + b
+           bias[3]: a*b + a + 1
+           bias[4]: a**2 + 1
+           bias[5]: a*b + a + b + 2
+           bias[6]: 1
+  div (/)  live=[0, 1, 3, 4, 5, 6] dead=[2] dim_spanned_over_(a,b)=6
+           bias[0]: a*b + b
+           bias[1]: a + b**2 + b
+           bias[3]: a*b + a + 1
+           bias[4]: a**2 + a
+           bias[5]: a*b + 2*a + 1
+           bias[6]: b + 2
+
+========================================================================
+Cross-op structural deadness (bias slot dead under EVERY op)
+========================================================================
+  output[0]: dead-in-all-ops bias slots = [0]
+  output[1]: dead-in-all-ops bias slots = [5]
+  output[2]: dead-in-all-ops bias slots = [3]
+  output[3]: dead-in-all-ops bias slots = [1]
+  output[4]: dead-in-all-ops bias slots = [6]
+  output[5]: dead-in-all-ops bias slots = []
+  output[6]: dead-in-all-ops bias slots = [2]
+
+========================================================================
+Per-output-slot summary: degeneracy verdict per op
+========================================================================
+(well-cond = dim_spanned == |live|; degenerate = dim_spanned < |live|)
+
+output[0]:
+  sub (−) : |live|=6 dim=6 → WELL-COND
+  add (+) : |live|=6 dim=6 → WELL-COND
+  mul (*) : |live|=6 dim=5 → DEGENERATE (5/6)
+  div (/) : |live|=6 dim=6 → WELL-COND
+
+output[1]:
+  sub (−) : |live|=6 dim=6 → WELL-COND
+  add (+) : |live|=6 dim=6 → WELL-COND
+  mul (*) : |live|=6 dim=5 → DEGENERATE (5/6)
+  div (/) : |live|=6 dim=6 → WELL-COND
+
+output[2]:
+  sub (−) : |live|=6 dim=6 → WELL-COND
+  add (+) : |live|=6 dim=6 → WELL-COND
+  mul (*) : |live|=6 dim=5 → DEGENERATE (5/6)
+  div (/) : |live|=6 dim=6 → WELL-COND
+
+output[3]:
+  sub (−) : |live|=6 dim=5 → DEGENERATE (5/6)
+  add (+) : |live|=6 dim=5 → DEGENERATE (5/6)
+  mul (*) : |live|=6 dim=4 → DEGENERATE (4/6)
+  div (/) : |live|=6 dim=5 → DEGENERATE (5/6)
+
+output[4]:
+  sub (−) : |live|=6 dim=5 → DEGENERATE (5/6)
+  add (+) : |live|=6 dim=5 → DEGENERATE (5/6)
+  mul (*) : |live|=6 dim=4 → DEGENERATE (4/6)
+  div (/) : |live|=6 dim=5 → DEGENERATE (5/6)
+
+output[5]:
+  sub (−) : |live|=7 dim=6 → DEGENERATE (6/7)
+  add (+) : |live|=7 dim=6 → DEGENERATE (6/7)
+  mul (*) : |live|=7 dim=5 → DEGENERATE (5/7)
+  div (/) : |live|=7 dim=6 → DEGENERATE (6/7)
+
+output[6]:
+  sub (−) : |live|=6 dim=6 → WELL-COND
+  add (+) : |live|=6 dim=5 → DEGENERATE (5/6)
+  mul (*) : |live|=6 dim=5 → DEGENERATE (5/6)
+  div (/) : |live|=6 dim=6 → WELL-COND

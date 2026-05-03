@@ -1,0 +1,68 @@
+v4 complex-algebra feasibility analysis
+========================================================================
+Algebra: k_i·k_i = k_{(i+1) mod 7}, k_i·k_j = i·k_{(2i+j) mod 7} for i≠j
+Bias: complex per slot, 14 real parameters
+Constraint per op: Re(output[k]) = target_p   (div: b·Re(output[k]) = a)
+
+--- Readout k_0 ---
+  {add}                      FEASIBLE    (rank 6/14, 6 constraints) — solution-space dim = 8
+  {sub}                      FEASIBLE    (rank 6/14, 6 constraints) — solution-space dim = 8
+  {mul}                      FEASIBLE    (rank 6/14, 6 constraints) — solution-space dim = 8
+  {div}                      infeasible  (rank 6/14, 7 constraints) — inconsistent
+  {add,sub}                  FEASIBLE    (rank 9/14, 12 constraints) — solution-space dim = 5
+  {add,sub,mul}              infeasible  (rank 11/14, 18 constraints) — inconsistent
+  {add,sub,mul,div}          infeasible  (rank 12/14, 25 constraints) — inconsistent
+
+--- Readout k_1 ---
+  {add}                      FEASIBLE    (rank 6/14, 6 constraints) — solution-space dim = 8
+  {sub}                      FEASIBLE    (rank 6/14, 6 constraints) — solution-space dim = 8
+  {mul}                      FEASIBLE    (rank 6/14, 6 constraints) — solution-space dim = 8
+  {div}                      infeasible  (rank 6/14, 7 constraints) — inconsistent
+  {add,sub}                  FEASIBLE    (rank 9/14, 12 constraints) — solution-space dim = 5
+  {add,sub,mul}              infeasible  (rank 11/14, 18 constraints) — inconsistent
+  {add,sub,mul,div}          infeasible  (rank 12/14, 25 constraints) — inconsistent
+
+--- Readout k_2 ---
+  {add}                      FEASIBLE    (rank 6/14, 6 constraints) — solution-space dim = 8
+  {sub}                      FEASIBLE    (rank 6/14, 6 constraints) — solution-space dim = 8
+  {mul}                      FEASIBLE    (rank 6/14, 6 constraints) — solution-space dim = 8
+  {div}                      infeasible  (rank 6/14, 7 constraints) — inconsistent
+  {add,sub}                  FEASIBLE    (rank 9/14, 12 constraints) — solution-space dim = 5
+  {add,sub,mul}              infeasible  (rank 11/14, 18 constraints) — inconsistent
+  {add,sub,mul,div}          infeasible  (rank 12/14, 25 constraints) — inconsistent
+
+--- Readout k_3 ---
+  {add}                      FEASIBLE    (rank 5/14, 5 constraints) — solution-space dim = 9
+  {sub}                      FEASIBLE    (rank 5/14, 5 constraints) — solution-space dim = 9
+  {mul}                      FEASIBLE    (rank 5/14, 5 constraints) — solution-space dim = 9
+  {div}                      infeasible  (rank 5/14, 6 constraints) — inconsistent
+  {add,sub}                  FEASIBLE    (rank 8/14, 10 constraints) — solution-space dim = 6
+  {add,sub,mul}              infeasible  (rank 10/14, 15 constraints) — inconsistent
+  {add,sub,mul,div}          infeasible  (rank 11/14, 21 constraints) — inconsistent
+
+--- Readout k_4 ---
+  {add}                      FEASIBLE    (rank 5/14, 5 constraints) — solution-space dim = 9
+  {sub}                      FEASIBLE    (rank 5/14, 5 constraints) — solution-space dim = 9
+  {mul}                      infeasible  (rank 4/14, 5 constraints) — inconsistent
+  {div}                      infeasible  (rank 5/14, 6 constraints) — inconsistent
+  {add,sub}                  FEASIBLE    (rank 8/14, 10 constraints) — solution-space dim = 6
+  {add,sub,mul}              infeasible  (rank 10/14, 15 constraints) — inconsistent
+  {add,sub,mul,div}          infeasible  (rank 11/14, 21 constraints) — inconsistent
+
+--- Readout k_5 ---
+  {add}                      FEASIBLE    (rank 6/14, 6 constraints) — solution-space dim = 8
+  {sub}                      FEASIBLE    (rank 6/14, 6 constraints) — solution-space dim = 8
+  {mul}                      FEASIBLE    (rank 6/14, 6 constraints) — solution-space dim = 8
+  {div}                      infeasible  (rank 6/14, 7 constraints) — inconsistent
+  {add,sub}                  FEASIBLE    (rank 9/14, 12 constraints) — solution-space dim = 5
+  {add,sub,mul}              infeasible  (rank 12/14, 18 constraints) — inconsistent
+  {add,sub,mul,div}          infeasible  (rank 13/14, 25 constraints) — inconsistent
+
+--- Readout k_6 ---
+  {add}                      infeasible  (rank 5/14, 6 constraints) — inconsistent
+  {sub}                      FEASIBLE    (rank 6/14, 6 constraints) — solution-space dim = 8
+  {mul}                      FEASIBLE    (rank 6/14, 6 constraints) — solution-space dim = 8
+  {div}                      infeasible  (rank 6/14, 7 constraints) — inconsistent
+  {add,sub}                  infeasible  (rank 8/14, 12 constraints) — inconsistent
+  {add,sub,mul}              infeasible  (rank 11/14, 18 constraints) — inconsistent
+  {add,sub,mul,div}          infeasible  (rank 12/14, 25 constraints) — inconsistent

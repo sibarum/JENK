@@ -1,0 +1,38 @@
+v2 SWAPPED path-count tables (div at k_0, in_0 at k_4)
+========================================================================
+Slot layout: k_0=op_/  k_1=op_-  k_2=op_+  k_3=op_*  k_4=in_0(a)  k_5=in_1(b)  k_6=out_0(=1)
+
+========================================================================
+Cross-op structural deadness: bias slot dead under EVERY op
+========================================================================
+  output[0]: dead-in-all-ops bias slots = [0]
+  output[1]: dead-in-all-ops bias slots = [5]
+  output[2]: dead-in-all-ops bias slots = [3]
+  output[3]: dead-in-all-ops bias slots = [1]
+  output[4]: dead-in-all-ops bias slots = [6]
+  output[5]: dead-in-all-ops bias slots = []
+  output[6]: dead-in-all-ops bias slots = [2]
+
+========================================================================
+Permutation check
+========================================================================
+Output → killed bias map:
+  output[0] → 0
+  output[1] → 5
+  output[2] → 3
+  output[3] → 1
+  output[4] → 6
+  output[5] → None
+  output[6] → 2
+
+Bias → killed-by-output map:
+  bias[0] killed by outputs [0]
+  bias[1] killed by outputs [3]
+  bias[2] killed by outputs [6]
+  bias[3] killed by outputs [2]
+  bias[4] killed by outputs — (alive everywhere)
+  bias[5] killed by outputs [1]
+  bias[6] killed by outputs [4]
+
+NOT a clean permutation:
+  output[5] kills NOTHING
