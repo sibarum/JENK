@@ -1,0 +1,99 @@
+v9 normalized-loss training — results
+==============================================================================
+Provenance: commit 8cbc2ee, started 2026-05-03 10:51:44
+Architecture: v7 (per-op k + RMSprop) with PER-OP LOSS NORMALIZATION
+  loss = (pred - target)² / baseline_op
+Baselines: +: 75.70, -: 75.93, *: 1426.86, /: 5.55
+
+==============================================================================
+Part 1: LR sweep, joint {+,-,*,/} training, k_init=1, clamp [-1,1], 5 seeds
+==============================================================================
+
+--- lr = 1e-04 ---
+  per-op aggregate (mean ± std across seeds):
+    +: k =  0.9985 ± 0.0007   loss =     20.099 ± 1.218   ratio = 0.2655× ± 0.0161
+    -: k =  0.6243 ± 0.0170   loss =     57.292 ± 2.459   ratio = 0.7546× ± 0.0324
+    *: k =  1.0000 ± 0.0000   loss =   1251.386 ± 55.430   ratio = 0.8770× ± 0.0388
+    /: k =  0.5865 ± 0.0039   loss =      4.782 ± 0.505   ratio = 0.8613× ± 0.0910
+
+--- lr = 1e-03 ---
+  per-op aggregate (mean ± std across seeds):
+    +: k = -0.4587 ± 0.0210   loss =     40.036 ± 0.558   ratio = 0.5289× ± 0.0074
+    -: k = -0.9993 ± 0.0006   loss =     45.437 ± 0.772   ratio = 0.5984× ± 0.0102
+    *: k =  1.0000 ± 0.0000   loss =     91.606 ± 9.461   ratio = 0.0642× ± 0.0066
+    /: k = -0.9040 ± 0.0097   loss =      0.875 ± 0.081   ratio = 0.1576× ± 0.0146
+
+--- lr = 3e-03 ---
+  per-op aggregate (mean ± std across seeds):
+    +: k = -0.5127 ± 0.0262   loss =     40.834 ± 0.813   ratio = 0.5394× ± 0.0107
+    -: k = -0.9978 ± 0.0017   loss =     45.359 ± 0.968   ratio = 0.5974× ± 0.0127
+    *: k =  0.9999 ± 0.0003   loss =     86.145 ± 13.669   ratio = 0.0604× ± 0.0096
+    /: k = -0.9034 ± 0.0226   loss =      0.885 ± 0.109   ratio = 0.1595× ± 0.0196
+
+--- lr = 1e-02 ---
+  per-op aggregate (mean ± std across seeds):
+    +: k = -0.5467 ± 0.1174   loss =     41.926 ± 1.994   ratio = 0.5539× ± 0.0263
+    -: k = -0.9926 ± 0.0066   loss =     45.652 ± 1.488   ratio = 0.6012× ± 0.0196
+    *: k =  0.9979 ± 0.0026   loss =     90.018 ± 25.635   ratio = 0.0631× ± 0.0180
+    /: k = -0.9041 ± 0.0572   loss =      1.559 ± 0.366   ratio = 0.2808× ± 0.0659
+
+==============================================================================
+Best base LR by SUM of per-op eval-ratios (normalized objective)
+==============================================================================
+  lr = 1e-04:  mean total eval ratio = 2.7584
+  lr = 1e-03:  mean total eval ratio = 1.3491
+  lr = 3e-03:  mean total eval ratio = 1.3566
+  lr = 1e-02:  mean total eval ratio = 1.4990
+
+  -> best lr = 1e-03
+
+  k(step) trajectory at lr=1e-03, seed 0:
+        step  k_+    k_-    k_*    k_/  
+           0   1.000   1.000   1.000   1.000
+        5000   0.999   0.619   1.000   0.624
+       12500   0.757   0.035   1.000   0.161
+       25000   0.012  -0.855   1.000  -0.644
+       49999  -0.444  -0.998   1.000  -0.889
+
+==============================================================================
+Part 2: gradient magnitude diagnostic at best lr=1e-03, seed=0
+==============================================================================
+Per-op summary (last 10000 training steps):
+  op   |grad_bias| med   |grad_k| med   raw ratio b/k    eff |Δbias|       eff |Δk|  eff ratio
+  +              3.021         0.3085           12.64       0.001204      0.0004755      2.455
+  -              3.679         0.1525           26.84       0.001262      0.0006056      1.969
+  *               0.42         0.1254           2.402      0.0002569      0.0001163      1.823
+  /              5.336          0.221           25.11       0.001538      0.0005374      2.634
+
+==============================================================================
+Part 3: soft-lock test at lr=1e-03, op=/, |b|=1 only, k_init=1.0
+==============================================================================
+  seed 0: initial k_/ = 1.0000, final k_/ = 1.000000, drift = 0.000000e+00, max|grad| = 0.0000e+00
+  seed 1: initial k_/ = 1.0000, final k_/ = 1.000000, drift = 0.000000e+00, max|grad| = 0.0000e+00
+  seed 2: initial k_/ = 1.0000, final k_/ = 1.000000, drift = 0.000000e+00, max|grad| = 0.0000e+00
+  CONFIRMED frozen.
+
+==============================================================================
+Comparison: v9 (normalized loss) vs v7 (raw loss)
+==============================================================================
+v7 best (lr=1e-3) reference:
+  +:  k = -0.6700 ± 0.0355   loss = 43.58 (ratio 0.576×)
+  -:  k = -0.9986 ± 0.0016   loss = 47.27 (ratio 0.623×)
+  *:  k = +0.9996 ± 0.0006   loss = 39.39 (ratio 0.028×)
+  /:  k = -0.9521 ± 0.0213   loss =  2.43 (ratio 0.437×)
+
+v9 best aggregate:
+  +: k = -0.4587 ± 0.0210   loss =     40.036   ratio = 0.5289×
+  -: k = -0.9993 ± 0.0006   loss =     45.437   ratio = 0.5984×
+  *: k =  1.0000 ± 0.0000   loss =     91.606   ratio = 0.0642×
+  /: k = -0.9040 ± 0.0097   loss =      0.875   ratio = 0.1576×
+
+==============================================================================
+Verdict reading guide
+==============================================================================
+If hypothesis correct:
+  k_+ → +1, k_- → +1, k_* → +1, k_/ → -1  (clean per-op convergence)
+  raw |grad_k| roughly equal between * and /  (no scale asymmetry)
+If hypothesis wrong:
+  k_+, k_- still drift to negative  (issue is deeper than scale)
+  in which case test (2) Möbius parameterization or (3) algebra change
